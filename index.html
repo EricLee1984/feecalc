@@ -384,6 +384,26 @@
       </div>
     </div>
 
+    <!-- ================= 线索登记 ================= -->
+    <div class="panel" id="leadPanel">
+      <h3><span class="idx">LEADS</span>线索登记 <span style="font-weight:400;color:var(--muted-2);font-size:11.5px">（家属联系方式 · 写入腾讯云数据库）</span></h3>
+      <div class="row">
+        <div class="fld" style="flex:1"><label>家属称呼 *</label>
+          <input id="l_name" placeholder="怎么称呼" style="width:100%">
+        </div>
+        <div class="fld" style="flex:1"><label>联系电话 *</label>
+          <input id="l_phone" inputmode="tel" maxlength="11" placeholder="11 位手机号" style="width:100%">
+        </div>
+      </div>
+      <div class="fld"><label>病情 / 需求简述</label>
+        <input id="l_note" placeholder="如：脑出血术后，东莞职工医保，想了解报销与筹款" style="width:100%">
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
+        <button class="btn" id="btnLead">提交登记</button>
+        <span class="hint" id="leadHint" style="margin:0">提交后写入云端线索库；请确认家属知情并同意后再登记联系方式。</span>
+      </div>
+    </div>
+
     <!-- ================= 海报生成 ================= -->
     <div class="panel" id="posterPanel">
       <h3><span class="idx">POSTER</span>生成朋友圈海报</h3>
@@ -1436,6 +1456,7 @@ function renderRed(missing){
   ["oTotal","oReimb","oSelf"].forEach(id=>$(id).textContent="—");
   $("oSelfSub").textContent="—";
   $("oSelfSum").style.display="none"; window._drugSum = null;
+  if(typeof _repTimer !== "undefined" && _repTimer) clearTimeout(_repTimer);
   $("calcBody").innerHTML=""; $("warnBox").style.display="none";
   $("drugSteps").style.display="none";
   $("jsonOut").textContent = JSON.stringify({status:"BLOCKED", missing}, null, 2);
@@ -1516,6 +1537,9 @@ function render(r){
   // 常用药品与耗材（按当前方案联动）
   renderDrugs(r.treat);
   updateSelfSum(r);
+
+  // 测算记录自动上报（防抖，云端配置生效后自动工作）
+  scheduleReport();
 
   // 海报预览跟随测算结果刷新
   if(typeof drawPoster === "function") drawPoster();
@@ -1786,6 +1810,62 @@ $("btnSubmit").onclick = async ()=>{
     console.error(err);
     btn.disabled=false; btn.textContent="提交失败，点击重试";
     note.style.color="var(--red)"; note.textContent="上传失败：" + (err.message||err);
+  }
+};
+
+/* ================= 测算记录自动上报（fee_calc_records，防抖 5 秒） ================= */
+let _repTimer = null;
+function scheduleReport(){
+  clearTimeout(_repTimer);
+  _repTimer = setTimeout(async ()=>{
+    try{
+      const r = window._lastR; if(!r || !r.sc) return;
+      const app = await tcbInit();
+      await app.database().collection("fee_calc_records").add({
+        created_at: Date.now(),
+        engine: "demo-v0.23", rules_version: "GD-JM-DG-2026-11-09",
+        input:{ treatment:r.treat, insurance:r.ins, visit:r.visit, level:r.level,
+                consciousness:r.consc, icu_days:r.icu, complications:[...r.comp],
+                dc_pending:r.dcPending||false, course:r.course, maint:r.maint },
+        result:{ total:+r.total.toFixed(2), totalLo:+r.totalLo.toFixed(1), totalHi:+r.totalHi.toFixed(1),
+                 reimb:+r.reimb.toFixed(2), self:+r.self.toFixed(2),
+                 self_pct:+(r.self/r.total*100).toFixed(1), status:r.st==="g"?"GREEN":"YELLOW" },
+        yellows: r.yellows.slice(0,5),
+        page: location.host || ""
+      });
+    }catch(e){ /* 上报失败静默：云端配置未就绪或网络异常时，不影响测算功能 */ }
+  }, 5000);
+}
+
+/* ================= 线索登记（fee_leads） ================= */
+$("btnLead").onclick = async ()=>{
+  const name=($("l_name").value||"").trim(), phone=($("l_phone").value||"").trim(), note=($("l_note").value||"").trim();
+  const hint=$("leadHint");
+  if(!name){ hint.style.color="var(--red)"; hint.textContent="请填写家属称呼"; $("l_name").focus(); return; }
+  if(!/^1\d{10}$/.test(phone)){ hint.style.color="var(--red)"; hint.textContent="请填写 11 位手机号"; $("l_phone").focus(); return; }
+  const btn=$("btnLead");
+  btn.disabled=true; btn.textContent="提交中…";
+  hint.style.color="var(--muted-2)"; hint.textContent="正在连接云端…";
+  try{
+    const app = await Promise.race([
+      tcbInit(),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error("连接云端超时（网络异常或云服务未就绪）")), 8000))
+    ]);
+    const res = await app.database().collection("fee_leads").add({
+      created_at: Date.now(), name, phone, note,
+      advisor: ($("p_advisor").value||"").trim(),
+      scene: (window._lastR && window._lastR.sc) ? window._lastR.sc.name : "",
+      page: location.host || ""
+    });
+    if(!res || !res.id) throw new Error("云端未返回记录 ID");
+    btn.textContent="✓ 已登记";
+    hint.style.color="var(--green)"; hint.textContent="已登记（记录号 " + res.id + "）";
+    toast("线索已登记 ✓");
+    $("l_name").value=""; $("l_phone").value=""; $("l_note").value="";
+    setTimeout(()=>{ btn.disabled=false; btn.textContent="提交登记"; }, 2500);
+  }catch(err){
+    btn.disabled=false; btn.textContent="提交登记";
+    hint.style.color="var(--red)"; hint.textContent="提交失败：" + (err.message||err) + "（请稍后重试或先线下记录）";
   }
 };
 
