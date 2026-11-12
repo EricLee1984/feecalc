@@ -1,0 +1,4 @@
+*.png
+*.py
+.workbuddy/
+.DS_Store

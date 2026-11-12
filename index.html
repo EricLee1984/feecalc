@@ -1,0 +1,2969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>费用预估引擎 · 内部演示版 v0.23（水滴筹展业工具 · 东莞/江门）</title>
+<style>
+  :root{
+    --navy:#1F3864;--navy-2:#16294A;--blue:#3266AD;--blue-l:#EAF1FA;
+    --coral:#D85A30;--coral-l:#FBEDE8;--amber:#BA7517;--amber-l:#FAF0DC;
+    --green:#2F7D5A;--green-l:#E8F3EE;--red:#B33A3A;--red-l:#FBEAEA;
+    --ink:#16223A;--muted:#5B6B85;--muted-2:#8494AC;--line:#E3E9F2;--bg:#F3F6FB;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.65;font-size:14px;-webkit-font-smoothing:antialiased}
+  .top{background:var(--navy);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top .logo{font-size:16px;font-weight:600;letter-spacing:.5px}
+  .top .badge{font-size:11px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);padding:2px 9px;border-radius:99px;color:#CFE0F5}
+  .top .note{margin-left:auto;font-size:11.5px;color:#9FB6D4}
+  .wrap{max-width:1240px;margin:0 auto;padding:18px 20px 60px}
+  .grid{display:grid;grid-template-columns:430px 1fr;gap:18px;align-items:start}
+  @media(max-width:960px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .panel h3{font-size:13px;font-weight:600;color:var(--navy);letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .panel h3 .idx{background:var(--blue-l);color:var(--blue);font-size:11px;border-radius:5px;padding:1px 7px}
+  .panel+.panel{margin-top:14px}
+
+  .scenes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .scene{border:1px solid var(--line);border-radius:9px;padding:9px 10px;cursor:pointer;background:#FBFCFE;text-align:left;transition:border-color .15s}
+  .scene:hover{border-color:var(--blue)}
+  .scene.on{border-color:var(--blue);background:var(--blue-l)}
+  .scene .st{font-size:12.5px;font-weight:600;color:var(--navy)}
+  .scene .sd{font-size:11px;color:var(--muted);margin-top:2px}
+  .grp{font-size:11px;color:var(--muted-2);margin:10px 0 6px;letter-spacing:1px}
+
+  .row{display:flex;gap:10px;margin-bottom:10px}
+  .fld{flex:1;min-width:0}
+  .fld label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}
+  select,input[type=number],textarea{width:100%;border:1px solid #D4DCE8;border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit;color:var(--ink);background:#fff}
+  select:focus,input:focus,textarea:focus{outline:none;border-color:var(--blue)}
+  textarea{resize:vertical;min-height:64px;line-height:1.6}
+  .chk{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid #D4DCE8;border-radius:99px;padding:4px 11px;font-size:12px;cursor:pointer;background:#fff;color:var(--muted);user-select:none}
+  .chip.on{background:var(--coral-l);border-color:var(--coral);color:var(--coral);font-weight:500}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;background:var(--blue);color:#fff;font-family:inherit}
+  .btn:hover{background:var(--navy)}
+  .btn.ghost{background:#fff;color:var(--blue);border:1px solid var(--blue)}
+  .hint{font-size:11.5px;color:var(--muted-2);margin-top:6px;line-height:1.6}
+  select:disabled{background:#F2F5FA;color:var(--muted-2);cursor:not-allowed;border-style:dashed}
+
+  .status{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:11px;margin-bottom:14px;font-size:13px;font-weight:500}
+  .st-g{background:var(--green-l);color:var(--green)} .st-y{background:var(--amber-l);color:var(--amber)} .st-r{background:var(--red-l);color:var(--red)}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .st-g .dot{background:var(--green)} .st-y .dot{background:var(--amber)} .st-r .dot{background:var(--red)}
+
+  .bigs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .big{border-radius:11px;padding:12px 14px;border:1px solid var(--line);background:#FBFCFE}
+  .big .lab{font-size:11px;color:var(--muted)}
+  .big .val{font-size:21px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .big .sub{font-size:11px;color:var(--muted-2);margin-top:1px}
+  .b-navy .val{color:var(--navy)} .b-green .val{color:var(--green)} .b-coral .val{color:var(--coral)}
+
+  /* 自费合计横幅：住院自费 + 药品耗材自费/自购，一眼可见 */
+  .self-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    margin:10px 0 12px;padding:12px 18px;border-radius:12px;
+    background:linear-gradient(135deg,var(--coral-l),#F8DCCF);border:1px solid #F0C4AE;
+    box-shadow:0 2px 10px rgba(216,90,48,.08)}
+  .self-hero .sh-lab{font-size:12.5px;font-weight:700;color:var(--coral);letter-spacing:.3px}
+  .self-hero .sh-val{font-size:36px;font-weight:800;color:var(--coral);line-height:1.15;
+    font-variant-numeric:tabular-nums;letter-spacing:-.5px;margin-top:2px}
+  .self-hero .sh-sub{font-size:11.5px;color:#9A6A50;line-height:1.7;max-width:52%;text-align:right}
+
+  .bar{display:flex;height:26px;border-radius:7px;overflow:hidden;margin:4px 0 16px;border:1px solid var(--line)}
+  .bar div{display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;white-space:nowrap;overflow:hidden}
+  .seg-a{background:var(--navy)} .seg-b{background:var(--blue)} .seg-c{background:var(--coral)}
+  .legend{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin:-10px 0 14px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+
+  .steps{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px}
+  .steps .hd{background:#F4F7FB;padding:8px 14px;font-size:12px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;cursor:pointer}
+  .steps .bd{display:none;padding:6px 0}
+  .steps.open .bd{display:block}
+  .srow{display:flex;justify-content:space-between;gap:14px;padding:6px 14px;font-size:12.5px;border-top:1px dashed var(--line)}
+  .srow:first-child{border-top:none}
+  .srow .k{color:var(--muted)} .srow .v{font-variant-numeric:tabular-nums;font-weight:500;color:var(--ink);white-space:nowrap}
+  .srow.sum .v{color:var(--coral)} .srow.ok .v{color:var(--green)}
+
+  /* 常用药品与耗材 */
+  .drug-grp{font-size:11.5px;font-weight:600;color:var(--muted);margin:12px 14px 4px;letter-spacing:.3px}
+  .drug-grp:first-child{margin-top:6px}
+  .drug-row{display:flex;gap:8px;align-items:baseline;padding:5px 14px;font-size:12.5px;border-top:1px dashed #EEF2F8;flex-wrap:wrap}
+  .drug-row .nm{color:var(--ink);font-weight:500;flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
+  .drug-row .qt{color:var(--blue);white-space:nowrap;font-variant-numeric:tabular-nums;font-weight:500}
+  .drug-row .nt{color:var(--muted-2);font-size:11.5px;flex:1 1 160px;min-width:0;overflow-wrap:anywhere}
+  .dtag{display:inline-block;font-size:10px;font-weight:600;border-radius:4px;padding:0 5px;margin-right:2px;flex-shrink:0;line-height:1.7;min-width:36px;text-align:center}
+  .dtag.a{background:var(--green-l);color:var(--green)}
+  .dtag.b{background:var(--amber-l);color:var(--amber)}
+  .dtag.s{background:var(--red-l);color:var(--red)}
+  .dtag.buy{background:var(--blue-l);color:var(--blue)}
+  .drug-grp.buy-grp{color:var(--coral)}
+  .drug-callout{margin:12px 14px 10px;background:#FFF8F3;border:1px solid #F3D3C2;border-radius:9px;padding:9px 12px;font-size:11.5px;color:#8A4A28;line-height:1.7}
+  .drug-sum{margin:12px 14px 10px;background:var(--coral-l);border:1px solid #F0CDB9;border-radius:9px;padding:9px 12px;font-size:12px;color:var(--ink);line-height:1.85}
+  .drug-sum b{color:var(--coral)}
+  .drug-sum .fine{font-size:11px;color:var(--muted-2)}
+  .drug-foot{margin:0 14px 12px;background:#F7F9FC;border-radius:9px;padding:9px 12px;font-size:11.5px;color:var(--muted);line-height:1.75}
+
+  pre.json{background:var(--navy);color:#DCE7F7;border-radius:11px;padding:14px 16px;font-size:11.5px;line-height:1.7;overflow:auto;max-height:300px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin:0 0 14px}
+
+  .warn-box{background:var(--amber-l);border-left:3px solid var(--amber);border-radius:9px;padding:10px 14px;font-size:12.5px;color:#6E4A10;margin-bottom:14px}
+  .disclaim{font-size:11.5px;color:var(--muted-2);line-height:1.75;border-top:1px solid var(--line);padding-top:12px;margin-top:6px}
+  .disclaim b{color:var(--muted)}
+  .toast{position:fixed;right:22px;bottom:22px;background:var(--navy);color:#fff;font-size:12.5px;padding:9px 18px;border-radius:8px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;max-width:320px}
+  .toast.show{opacity:.95}
+
+  /* 就医情形对比 */
+  .cmp-box{display:none;margin-top:12px;background:#FBFCFE;border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+  .cmp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+  @media(max-width:640px){.cmp-grid{grid-template-columns:1fr}}
+  .cmp-card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+  .cmp-card.best{border-color:var(--green);background:var(--green-l)}
+  .cmp-t{font-size:11.5px;color:var(--muted);font-weight:600}
+  .cmp-card.best .cmp-t{color:var(--green)}
+  .cmp-v{font-size:17px;font-weight:600;color:var(--navy);margin-top:2px;font-variant-numeric:tabular-nums}
+  .cmp-card.best .cmp-v{color:var(--green)}
+  .cmp-s{font-size:11px;color:var(--muted-2);margin-top:1px}
+  .cmp-note{font-size:12px;color:var(--ink);background:var(--amber-l);border-radius:8px;padding:8px 12px;line-height:1.7}
+  .cmp-note b{color:var(--coral)}
+  .cmp-warn{font-size:11px;color:var(--amber);margin-top:6px;line-height:1.7}
+  /* ===== 说明类内容统一隐藏（只留免责与风险警示）=====
+     要给顾问看说明时，把下面一行注释掉即可整体恢复
+     注意：#courseTip（血液病口径防错）、康复期提示、各种黄灯/警示条不在此列，属风险提示，保留 */
+  .hint,.note-help,.drug-callout,.drug-foot,.drug-sum .fine,
+  .pc-sub,.cmp-note,.h3-sub{display:none !important}
+  /* ===== 海报模板选择器 ===== */
+  .ps-tpls{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-top:2px}
+  .ps-tpl{border:1.5px solid var(--line);border-radius:10px;padding:8px 6px;text-align:center;cursor:pointer;
+    background:#fff;transition:border-color .15s,background .15s}
+  .ps-tpl:hover{border-color:var(--blue)}
+  .ps-tpl.on{border-color:var(--navy);background:var(--blue-l)}
+  .ps-tpl .pt{font-size:12px;font-weight:600;color:var(--navy);line-height:1.3;white-space:nowrap}
+  .ps-tpl .pd{font-size:10px;color:var(--muted-2);margin-top:2px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ps-tpl .sw{display:flex;gap:3px;justify-content:center;margin-bottom:5px}
+  .ps-tpl .sw i{width:16px;height:8px;border-radius:2px;display:block}
+  .pster-setup .row{margin-bottom:8px}
+  #posterPanel canvas{background:#EEF2F8}
+  /* 背景图案选择器 */
+  .ps-pats{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:7px;margin-top:2px}
+  .ps-pat{border:1.5px solid var(--line);border-radius:9px;padding:6px 4px;text-align:center;
+    cursor:pointer;background:#fff;transition:border-color .15s,background .15s}
+  .ps-pat:hover{border-color:var(--blue)}
+  .ps-pat.on{border-color:var(--navy);background:var(--blue-l)}
+  .ps-pat .pn{font-size:11.5px;font-weight:600;color:var(--navy);line-height:1.3}
+  .ps-pat canvas{width:100%;height:44px;border-radius:4px;display:block;margin-bottom:5px}
+  /* 同病种方案对比：表格式列表（方案多时比卡片更好读） */
+  .pc-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+  .pc-t{font-size:12.5px;font-weight:600;color:var(--navy)}
+  .pc-sub{font-size:11px;color:var(--muted-2)}
+  .pc-list{display:flex;flex-direction:column;gap:5px}
+  .pc-row{display:grid;grid-template-columns:1fr 68px 86px 40px;gap:6px;align-items:center;
+    padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12px}
+  .pc-row.hd{background:transparent;border:none;padding:0 9px 2px;font-size:10.5px;color:var(--muted-2);font-weight:600}
+  .pc-row.best{border-color:var(--green);background:var(--green-l)}
+  .pc-row.cur{border-color:var(--coral);background:#FFF8F5}
+  .pc-row.best.cur{border-color:var(--coral);background:var(--green-l)}
+  .pc-nm{color:var(--ink);line-height:1.45;min-width:0;overflow-wrap:anywhere}
+  .pc-nm b{color:var(--navy);font-weight:600}
+  .pc-nm .pc-op{font-size:10.5px;color:var(--muted-2);display:block;margin-top:1px}
+  .pc-v{font-size:13.5px;font-weight:600;color:var(--navy);text-align:right;font-variant-numeric:tabular-nums}
+  .pc-row.best .pc-v{color:var(--green)}
+  .pc-row.cur .pc-v{color:var(--coral)}
+  .pc-tot{font-size:11px;color:var(--muted-2);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pc-pct{font-size:11px;color:var(--muted-2);text-align:right;font-variant-numeric:tabular-nums}
+  .pc-flag{display:inline-block;font-size:10px;padding:1px 5px;border-radius:4px;margin:2px 4px 0 0;vertical-align:1px;white-space:nowrap}
+  .pc-flag.b{background:var(--green-l);color:var(--green)}
+  .pc-flag.c{background:#FDEBE4;color:var(--coral)}
+  @media(max-width:520px){
+    .pc-row{grid-template-columns:1fr 62px 44px}
+    .pc-tot{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="logo">费用预估引擎</div>
+  <span class="badge">内部演示版 v0.23 · 东莞/江门</span>
+  <span class="badge">仅供水滴筹顾问展业参考</span>
+  <div class="note">纯本地计算 · 不上传任何患者数据 · 参数来源与免责见页尾</div>
+</div>
+
+<div class="wrap">
+<div class="grid">
+
+  <!-- ================= 左栏：输入 ================= -->
+  <div>
+    <div class="panel">
+      <h3><span class="idx">①</span>粘贴病情<span class="h3-sub">（自动填表 · 演示版）</span></h3>
+      <textarea id="f_text" placeholder="粘贴顾问转述或诊断证明，例如：&#10;患者58岁，昨天脑出血在东莞市人民医院做了开颅加去骨瓣，术后进ICU，有高血压，东莞职工医保"></textarea>
+      <div style="margin-top:9px;display:flex;gap:8px">
+        <button class="btn" id="btnParse">解析并填入</button>
+        <button class="btn ghost" id="btnReset">清空重来</button>
+      </div>
+      <div class="hint">粘一段话就能自动识别治疗方式、意识、ICU 天数、并发症、参保地；也可以跳过本步，直接在 ② 选场景。演示版用关键词规则，正式版替换为 LLM（只输出参数 JSON，金额仍由本引擎计算）。</div>
+    </div>
+
+    <div class="panel">
+      <h3><span class="idx">②</span>选病种与治疗方案<span class="h3-sub">（不想粘文字就点一下）</span></h3>
+      <div class="grp">第一步 · 病种</div>
+      <div class="scenes" id="dzChips"></div>
+      <div class="grp" id="opGrp">第二步 · 术式</div>
+      <div class="scenes" id="opChips"></div>
+      <div class="grp" id="vrGrp">第三步 · 细分方案</div>
+      <div class="scenes" id="vrChips"></div>
+      <div class="hint" id="sceneHint">按 <b>病种 → 术式 → 细分方案</b> 逐层选择，费用区间随方案实时变化；切病种会清空已选方案，避免错配。选好后可用下方按钮横向对比同病种各方案的自费差距。</div>
+      <button class="btn ghost" id="btnPlanCmp" style="margin-top:10px">📊 对比本病种各方案费用</button>
+      <div class="cmp-box" id="planCmpBox"></div>
+    </div>
+
+    <div class="panel">
+      <h3><span class="idx">③</span>参数微调<span class="h3-sub">（改后实时重算）</span></h3>
+      <input type="hidden" id="f_treat">
+      <div style="font-size:12px;color:var(--blue);background:var(--blue-l);border-radius:8px;padding:7px 10px;margin-bottom:10px">当前方案：<b id="curTreat" style="color:var(--navy)">未选择</b><span class="hint" style="margin:0">　（在 ①② 中设定）</span></div>
+      <div class="row">
+        <div class="fld"><label>意识状态</label>
+          <select id="f_consc">
+            <option value="typical">典型（未确认）</option>
+            <option value="alert">清醒</option>
+            <option value="drowsy">嗜睡</option>
+            <option value="coma">昏迷</option>
+          </select>
+        </div>
+        <div class="fld"><label>ICU 天数（含预计）</label>
+          <input type="number" id="f_icu" min="0" max="60" value="7">
+        </div>
+      </div>
+      <div class="row" id="courseRow" style="display:none">
+        <div class="fld"><label>疗程次数</label>
+          <input type="number" id="f_course" min="1" max="12" value="1">
+          <div class="hint" style="margin-top:4px" id="courseHint">总额 = 单疗程费用 × 疗程次数</div>
+        </div>
+        <div class="fld"><label>移植后维持月数</label>
+          <input type="number" id="f_maint" min="0" max="36" value="0">
+          <div class="hint" style="margin-top:4px" id="maintHint">抗排异与复查的月费 × 月数</div>
+        </div>
+      </div>
+      <div id="courseTip" style="display:none;font-size:11.5px;color:var(--coral);background:var(--coral-l);border-radius:7px;padding:6px 10px;margin-bottom:10px;line-height:1.65">
+        <b>血液病专属口径</b>：血液病不是一次住院就结束，总额 = 单疗程费用 × 疗程次数 ＋ 移植后维持月费 × 月数。填错这两项会让估算偏差数倍，请与主治医生确认疗程数。
+      </div>
+      <div class="fld" style="margin-bottom:10px"><label>并发症（可多选）</label>
+        <div class="chk" id="f_comp">
+          <span class="chip" data-v="pulm">肺部感染</span>
+          <span class="chip" data-v="rebleed">二次出血</span>
+          <span class="chip" data-v="hydro">脑积水</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="fld" style="flex:0 0 38%"><label>就诊城市</label>
+          <select id="f_city">
+            <option value="dg" selected>东莞</option>
+            <option value="jm">江门</option>
+            <option value="gz">广州</option>
+            <option value="fs">佛山</option>
+            <option value="zs">中山</option>
+            <option value="zh">珠海</option>
+            <option value="sz">深圳</option>
+            <option value="other">其他城市</option>
+          </select>
+        </div>
+        <div class="fld"><label>参保类型（江门 / 东莞）<b style="color:var(--coral)">*</b></label>
+          <select id="f_ins">
+            <option value="dg_silver" selected>东莞 · 职工银卡（单建统筹）</option>
+            <option value="dg_gold">东莞 · 职工金卡（统账结合）</option>
+            <option value="dg_silver_ret">东莞 · 职工银卡（退休）</option>
+            <option value="dg_gold_ret">东莞 · 职工金卡（退休）</option>
+            <option value="dg_res">东莞 · 居民医保</option>
+            <option value="jm_emp">江门 · 职工医保（在职）</option>
+            <option value="jm_emp_ret">江门 · 职工医保（退休）</option>
+            <option value="jm_res">江门 · 居民医保</option>
+            <option value="none">无医保（全额自费）</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="fld"><label>就诊医院</label>
+          <select id="f_hosp">
+            <option value="" selected>— 请选择医院 —</option>
+          </select>
+        </div>
+        <div class="fld" style="flex:0 0 38%"><label>医院等级</label>
+          <select id="f_level">
+            <option value="3" selected>三级医院</option>
+            <option value="2">二级医院</option>
+            <option value="1">一级以下医院</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint" id="hospHint" style="margin:-4px 0 10px">先选城市再选医院，等级自动带出；等级决定起付线，请与结算单核对</div>
+      <div class="fld" style="margin-bottom:10px"><label>就医情形</label>
+        <select id="f_visit">
+          <option value="local" selected>市内定点医疗机构</option>
+          <option value="ext_ref">市外定点 · 已办理转诊/备案</option>
+          <option value="ext_noref">市外定点 · 未经转诊</option>
+        </select>
+        <div class="hint">就诊城市与参保地不同时会自动切到"市外·已转诊"，未办转诊请自行改选；江门/东莞均按市级统筹，不分区县</div>
+      </div>
+      <div class="fld" id="dcRow" style="display:none"><label>去骨瓣二期修补</label>
+        <div class="chk" id="f_dc">
+          <span class="chip" data-v="pending">待二期修补（钛网 2–6 万，计入总额）</span>
+        </div>
+        <div class="hint">仅「开颅 + 去骨瓣减压」方案可选。勾选后钛网 2–6 万计入总额并按目录内 75% 折算；实际为二期手术、通常另行住院结算。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 右栏：输出 ================= -->
+  <div>
+    <div class="panel">
+      <h3><span class="idx">OUTPUT</span>判定结果 <span style="font-weight:400;color:var(--muted-2);font-size:11.5px">（所有金额为区间估算，非承诺）</span></h3>
+      <div class="status st-r" id="statusBar"><span class="dot"></span><span id="statusText">请先完成带 * 的必填项</span></div>
+
+      <div class="self-hero" id="oSelfSum" style="display:none">
+        <div class="sh-l">
+          <div class="sh-lab">💰 自费合计（住院预估自费 ＋ 药品耗材自费/自购）</div>
+          <div class="sh-val" id="oSelfSumVal">—</div>
+        </div>
+        <div class="sh-sub" id="oSelfSumSub"></div>
+      </div>
+
+      <div class="bigs">
+        <div class="big b-navy"><div class="lab">预估总费用</div><div class="val" id="oTotal">—</div><div class="sub" id="oTotalSub">四段构成相加</div></div>
+        <div class="big b-green"><div class="lab">预估医保报销</div><div class="val" id="oReimb">—</div><div class="sub">含大病二次报销</div></div>
+        <div class="big b-coral"><div class="lab">预估自费（家里要出的钱）</div><div class="val" id="oSelf">—</div><div class="sub" id="oSelfSub">—</div></div>
+      </div>
+
+      <div class="bar" id="oBar">
+        <div class="seg-a" style="flex:4">报销 71%</div>
+        <div class="seg-b" style="flex:2">目录内自付</div>
+        <div class="seg-c" style="flex:3">目录外自费</div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--navy)"></i>医保报销</span>
+        <span><i style="background:var(--blue)"></i>目录内个人自付（起付线·乙类先自付·共付段）</span>
+        <span><i style="background:var(--coral)"></i>目录外自费（丙类·自费药·护工·器械）</span>
+      </div>
+
+      <div class="steps" id="calcSteps">
+        <div class="hd"><span>计算明细（逐行可核，公式透明）</span><span id="stepsToggle">展开 ▾</span></div>
+        <div class="bd" id="calcBody"></div>
+      </div>
+
+      <div class="steps" id="drugSteps" style="display:none">
+        <div class="hd"><span id="drugHead">💊 常用药品与耗材（典型用量参考）</span><span id="drugToggle">展开 ▾</span></div>
+        <div class="bd" id="drugBody"></div>
+      </div>
+
+      <div class="warn-box" id="warnBox" style="display:none"></div>
+
+      <pre class="json" id="jsonOut" style="display:none">等待输入…</pre>
+
+      <div style="margin-top:12px">
+        <button class="btn ghost" id="btnCompare">📊 对比三种就医情形（市内 / 转诊 / 未转诊）</button>
+      </div>
+      <div class="cmp-box" id="cmpBox"></div>
+
+      <div id="upPanel" style="display:none;background:#FBFCFE;border:1px dashed #C9D6E8;border-radius:11px;padding:12px 14px;margin-top:12px">
+        <div style="font-size:12.5px;font-weight:600;color:var(--navy);margin-bottom:8px">📌 测试记录云端上报（供产品迭代优化）</div>
+        <div class="row" style="margin-bottom:8px">
+          <div class="fld"><input id="f_advisor" placeholder="测试人称呼 / 工号（选填）" style="width:100%"></div>
+          <button class="btn" id="btnSubmit" style="flex-shrink:0">提交测试记录</button>
+        </div>
+        <textarea id="f_feedback" style="width:100%;min-height:44px" placeholder="备注（选填）：与实际结算的偏差、页面问题、希望增加的场景…"></textarea>
+        <div class="hint">上报内容仅含：测算参数与计算结果、本条备注、浏览器类型（<b>不含病情描述原文与任何患者身份信息</b>）。⚠️ 请勿在上方病情描述框输入真实姓名、身份证号等隐私信息。</div>
+        <div class="hint" id="upStatus" style="display:none"></div>
+      </div>
+
+      <div class="disclaim">
+        <b>口径与免责（内部版）</b>　① 本工具仅供水滴筹顾问内部展业参考，输出结果可直接向家属出示，但<b>不得表述为"能报""包报"或任何承诺</b>；② 报销参数来自官方公开文件（核实日期 2026-11-09）——<b>江门</b>：2025/2026 年度待遇标准（起付 500/600/900 元，职工 93/90/83%、居民 85/80/65%，退休起付 −100 元、比例 +3pp；大病职工 0.5 万起 85%/90%、居民 1 万起 60%/70%）；<b>东莞</b>：市政府官网口径（住院按费用分段：≤10 万 95/90/85%、&gt;10 万 85/80/75%，退休各段 +5pp；大病 1.2 万起，≤10 万 70%、&gt;10 万 80%）；③ <b>东莞职工医保分银卡（单建统筹）/ 金卡（统账结合）</b>：金卡住院比例 +5pp、住院及大病起付线减半（已建模）；金卡可另选"大额补助"（目录内自付超起付部分 ≤10 万 90% / >10 万 75%）本版<b>未建模</b>，④ 费用构成参数取自行业样例，尚未经本地结算单校准，<b>当前为演示精度</b>；⑤ 异地就医已建模：市外起付线上调（江门统一 1500 元、东莞独立三档 银卡/居民 1000/1500/2000、金卡减半 500/750/1000，2026-11-11 核验），江门市外比例按转诊/未转诊口径下调（已建模），<b>东莞市外支付比例是否下调未核实（按市内计算并黄灯提示）</b>；江门大病基数按官方口径"不含起付线以内费用"计算；⑥ 每次出图均以医院结算单与参保地医保局政策为准。
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
+        <button class="btn ghost" id="btnJson" style="font-size:11.5px;padding:5px 10px">查看原始 JSON</button>
+        <button class="btn ghost" id="btnUpToggle" style="font-size:11.5px;padding:5px 10px">🛠 内部：提交测试记录</button>
+      </div>
+    </div>
+
+    <!-- ================= 海报生成 ================= -->
+    <div class="panel" id="posterPanel">
+      <h3><span class="idx">POSTER</span>生成朋友圈海报</h3>
+
+      <div class="pster-setup">
+        <div class="row">
+          <div class="fld"><label>顾问姓名</label>
+            <input id="p_advisor" placeholder="填写顾问姓名" style="width:100%">
+          </div>
+          <div class="fld"><label>联系电话</label>
+            <input id="p_phone" placeholder="填写联系电话" style="width:100%">
+          </div>
+        </div>
+        <div class="row" style="align-items:flex-end">
+          <div class="fld"><label>微信二维码（可选）</label>
+            <input type="file" id="p_qr" accept="image/*" style="width:100%;font-size:12px">
+          </div>
+          <div class="fld" style="flex:0 0 auto">
+            <button class="btn ghost" id="p_qrClear" style="font-size:12px;padding:7px 12px">清除二维码</button>
+          </div>
+        </div>
+        <div class="hint" id="p_qrHint" style="margin:-2px 0 10px">建议上传微信个人二维码截图；不上传则海报留二维码空位。顾问信息只保存在本机浏览器，不上传云端。</div>
+      </div>
+
+      <div class="grp">选择模板</div>
+      <div class="ps-tpls" id="p_tpls"></div>
+
+      <div class="grp">背景图案<span class="note-help">（与模板自由组合，图案始终在文字下方）</span></div>
+      <div class="ps-pats" id="p_pats"></div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="btn" id="btnPoster">⬇ 生成并保存海报</button>
+        <button class="btn ghost" id="btnPosterPrev">刷新预览</button>
+      </div>
+
+      <div id="posterWrap" style="margin-top:12px">
+        <canvas id="posterCanvas" style="width:100%;max-width:430px;border-radius:12px;border:1px solid var(--line);display:block"></canvas>
+      </div>
+      <div class="hint" id="posterHint" style="margin-top:8px">海报为 1080×1350（微信朋友圈 4:5 推荐尺寸），点击保存后 PNG 图片可直接发朋友圈；手机端优先唤起系统分享，可一键存入相册。</div>
+    </div>
+  </div>
+
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- 海报保存：长按保存浮层（iOS 旧版 Safari / 微信内置浏览器兜底） -->
+<style>
+.ps-save{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:18px;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.ps-save[hidden]{display:none}
+.ps-save-box{background:#fff;border-radius:16px;max-width:400px;width:100%;max-height:86vh;overflow:auto;padding:18px 16px;text-align:center;box-shadow:0 18px 50px rgba(15,23,42,.35)}
+.ps-save-tt{font-weight:800;font-size:17px;color:#16223A}
+.ps-save-tip{font-size:13.5px;color:#5B6B85;line-height:1.65;margin:8px 0 10px;text-align:left}
+.ps-save-box img{width:100%;max-width:340px;border-radius:10px;border:1px solid #E3E9F2;display:block;margin:0 auto;-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
+.ps-save-tip2{font-size:13px;color:#2F7BF6;margin:10px 0 12px;font-weight:700}
+</style>
+<div class="ps-save" id="psSave" hidden role="dialog" aria-modal="true">
+  <div class="ps-save-box">
+    <div class="ps-save-tt">保存海报到手机相册</div>
+    <div class="ps-save-tip" id="psSaveTip"></div>
+    <img id="psSaveImg" alt="长按保存的海报" draggable="false">
+    <div class="ps-save-tip2" id="psSaveTip2">长按上方图片 → 选择「保存图片 / 存储图像」</div>
+    <button class="btn ghost" id="psSaveClose">关闭</button>
+  </div>
+</div>
+
+<script src="https://static.cloudbase.net/cloudbase-js-sdk/2.17.3/cloudbase.full.js"></script>
+<script>
+/* ================= 病种 · 术式 · 细分方案（三层场景库）=================
+   结构：disease（病种）→ procedure（术式）→ variant（细分方案）
+   seg 单位：万元，四段 [手术及麻醉, ICU 重症监护, 普通病房住院, 康复治疗]
+   dir = 目录内费用占比；icuW = ICU 段权重；dc = 需去骨瓣二期；drug = 含长期自费药
+   profile = 药品表归属（ich / cancer / stroke）
+   ⚠️ 费用区间为行业均值估算（演示精度），除已标注来源的脑出血/肿瘤方案外，未经本地结算单校准 */
+const DISEASES = {
+  ich: {
+    name:"脑出血", profile:"ich",
+    procedures:[
+      { id:"cons", name:"保守治疗（不开刀）", variants:[
+        { id:"ich_cons", name:"药物治疗 + 严密观察", seg:[[0.8,1.5],[0.0,0.5],[1.2,2.5],[1.0,1.5]], dir:0.88, icuW:0.12, skipDrug:["植入耗材"] },
+        { id:"ich_cons_agg", name:"强化降颅压 + 预防再出血", seg:[[1.0,2.0],[0.3,1.0],[1.8,3.5],[1.2,2.0]], dir:0.88, icuW:0.18, skipDrug:["植入耗材"] }
+      ]},
+      { id:"drain", name:"微创引流", variants:[
+        { id:"ich_drain", name:"钻孔血肿引流", seg:[[1.5,2.5],[0.5,2.0],[2.0,5.0],[2.0,2.5]], dir:0.85, icuW:0.20, skipDrug:["植入耗材"] },
+        { id:"ich_drain_stereo", name:"立体定向穿刺 + 持续引流", seg:[[2.0,3.5],[0.6,2.2],[2.2,5.2],[2.0,2.6]], dir:0.85, icuW:0.20, skipDrug:["植入耗材"] },
+        { id:"ich_drain_endo", name:"内镜下血肿清除", seg:[[2.8,5.0],[0.8,2.5],[2.2,5.0],[2.2,3.0]], dir:0.83, icuW:0.22, skipDrug:["植入耗材"] }
+      ]},
+      { id:"cran", name:"开颅手术", variants:[
+        { id:"ich_cran", name:"开颅血肿清除", seg:[[3.0,7.0],[2.0,6.0],[3.5,8.0],[4.5,5.0]], dir:0.80, icuW:0.25 },
+        { id:"ich_cran_dc", name:"开颅 + 去骨瓣减压", seg:[[3.0,8.0],[3.5,7.0],[4.1,11.0],[4.4,9.0]], dir:0.80, icuW:0.24, dc:true, dcCost:[2.0,6.0], dcDir:0.75 },
+        { id:"ich_cran_aneurysm", name:"开颅血肿清除 + 动脉瘤夹闭", seg:[[4.5,9.0],[2.5,6.0],[4.0,9.0],[4.5,6.0]], dir:0.78, icuW:0.25 },
+        { id:"ich_cran_post", name:"后颅窝 / 脑干血肿开颅", seg:[[4.0,8.0],[3.0,7.0],[4.0,9.0],[5.0,7.0]], dir:0.78, icuW:0.30 }
+      ]}
+    ]
+  },
+  tum: {
+    name:"恶性肿瘤", profile:"cancer",
+    procedures:[
+      { id:"surg", name:"手术为主", variants:[
+        { id:"tum_surg", name:"根治手术 + 辅助化疗", seg:[[6.0,10.0],[0.3,0.8],[1.5,4.0],[2.0,5.0]], dir:0.85, icuW:0.06, skipDrug:["靶向与免疫"] },
+        { id:"tum_surg_crt", name:"根治手术 + 辅助化疗 + 放疗", seg:[[6.0,10.0],[0.3,0.8],[1.8,4.5],[3.0,6.5]], dir:0.85, icuW:0.06, skipDrug:["靶向与免疫"] },
+        { id:"tum_surg_pal", name:"姑息减瘤手术（晚期）", seg:[[2.5,5.0],[0.3,1.0],[1.5,3.5],[1.5,3.5]], dir:0.85, icuW:0.08, skipDrug:["靶向与免疫","化疗与支持治疗","放疗相关"] }
+      ]},
+      { id:"nonop", name:"非手术综合治疗", variants:[
+        { id:"tum_target", name:"靶向 / 免疫治疗为主", seg:[[0.5,1.0],[0.2,0.5],[1.0,3.5],[15.0,35.0]], dir:0.45, icuW:0.02, drug:true, skipDrug:["化疗与支持治疗","放疗相关"] },
+        { id:"tum_chemo", name:"化疗为主", seg:[[0.3,0.8],[0.2,0.6],[1.0,3.0],[8.0,20.0]], dir:0.55, icuW:0.02, drug:true, skipDrug:["靶向与免疫","放疗相关"] },
+        { id:"tum_radio", name:"放疗为主", seg:[[0.2,0.5],[0.0,0.3],[1.0,2.5],[7.0,16.0]], dir:0.50, icuW:0.01, drug:true, skipDrug:["靶向与免疫","化疗与支持治疗"] }
+      ]}
+    ]
+  },
+  lc: {
+    name:"肺癌", profile:"cancer",
+    procedures:[
+      { id:"surg", name:"手术为主", variants:[
+        { id:"lc_lobectomy", name:"肺叶切除 + 纵隔淋巴结清扫", seg:[[5.0,9.0],[0.3,0.8],[2.5,5.0],[2.0,5.0]], dir:0.85, icuW:0.06, skipDrug:["靶向与免疫","放疗相关"] },
+        { id:"lc_sleeve", name:"袖式切除 / 全肺切除（复杂）", seg:[[7.0,12.0],[0.5,1.2],[3.0,6.0],[2.5,6.0]], dir:0.83, icuW:0.08, skipDrug:["靶向与免疫","放疗相关"] }
+      ]},
+      { id:"nonop", name:"非手术综合治疗", variants:[
+        { id:"lc_target", name:"靶向 / 免疫治疗为主", seg:[[0.3,0.8],[0.2,0.5],[1.0,3.0],[14.0,32.0]], dir:0.45, icuW:0.02, drug:true, skipDrug:["化疗与支持治疗","放疗相关"] },
+        { id:"lc_chemo", name:"化疗为主", seg:[[0.3,0.8],[0.2,0.5],[1.0,3.0],[7.0,18.0]], dir:0.55, icuW:0.02, drug:true, skipDrug:["靶向与免疫","放疗相关"] },
+        { id:"lc_radio", name:"放疗为主（含姑息）", seg:[[0.2,0.5],[0.0,0.3],[1.0,2.5],[6.0,14.0]], dir:0.50, icuW:0.01, drug:true, skipDrug:["靶向与免疫","化疗与支持治疗"] },
+        { id:"lc_embo", name:"支气管动脉介入栓塞（止血）", seg:[[1.5,3.0],[0.3,0.8],[1.5,3.0],[1.5,3.0]], dir:0.85, icuW:0.05, skipDrug:["靶向与免疫","化疗与支持治疗","放疗相关"] }
+      ]}
+    ]
+  },
+  stroke: {
+    name:"脑梗死", profile:"stroke",
+    procedures:[
+      { id:"thrombolysis", name:"溶栓治疗", variants:[
+        { id:"stroke_ivt", name:"静脉溶栓（rt-PA / 替奈普酶）", seg:[[0.8,1.8],[0.6,2.2],[2.0,4.0],[3.0,7.0]], dir:0.85, icuW:0.20, skipDrug:["取栓介入耗材"] },
+        { id:"stroke_ivt_bridge", name:"静脉溶栓 + 桥接取栓", seg:[[3.2,6.5],[0.8,2.4],[2.2,4.5],[3.0,7.5]], dir:0.83, icuW:0.22 }
+      ]},
+      { id:"interv", name:"血管内介入取栓", variants:[
+        { id:"stroke_tectomy", name:"机械取栓", seg:[[3.0,6.0],[0.8,2.5],[2.2,4.5],[3.0,8.0]], dir:0.82, icuW:0.22, skipDrug:["溶栓用药"] },
+        { id:"stroke_stent", name:"支架取栓 / 动脉支架", seg:[[4.0,7.5],[0.8,2.5],[2.2,5.0],[3.0,8.0]], dir:0.82, icuW:0.22, skipDrug:["溶栓用药"] }
+      ]},
+      { id:"cons", name:"保守治疗 + 抗栓", variants:[
+        { id:"stroke_cons", name:"抗血小板 / 抗凝 + 康复", seg:[[0.4,1.0],[0.1,0.6],[1.5,3.0],[3.0,7.0]], dir:0.88, icuW:0.12, skipDrug:["溶栓用药","取栓介入耗材"] }
+      ]}
+    ]
+  },
+  alb: {
+    name:"急性白血病", profile:"alb",
+    /* ⚠️ 血液病口径：seg 为「单次/单疗程」费用，总额 = seg × 疗程数 + 月费 × 维持月数
+       perCourse:true → 该方案按疗程累加（数值为单疗程费用）
+       maintCost:[低,高] 万元/月 → 移植后抗排异与复查的长期开销
+       数据源：北京医院官网住院口径、南方医科大学珠江医院、江苏省肿瘤医院公开科普口径
+       区间已做折中处理（住院口径与全程口径相差 4–5 倍），未经本地结算单校准 */
+    procedures:[
+      { id:"chemo", name:"化疗为主", variants:[
+        { id:"alb_induct", name:"诱导缓解（单疗程）", seg:[[0.5,1.5],[0.8,3.0],[1.0,3.0],[0.3,1.0]], dir:0.85, icuW:0.25, perCourse:true, courseDef:1, skipDrug:["移植与抗排异"] },
+        { id:"alb_consol", name:"巩固强化（多疗程）", seg:[[0.3,1.0],[0.4,1.8],[0.8,2.5],[0.2,0.8]], dir:0.85, icuW:0.22, perCourse:true, courseDef:4, skipDrug:["移植与抗排异"] },
+        { id:"alb_chemo_all", name:"全程化疗（诱导 + 巩固）", seg:[[0.4,1.2],[0.6,2.4],[0.9,2.8],[0.3,0.9]], dir:0.85, icuW:0.24, perCourse:true, courseDef:5, skipDrug:["移植与抗排异"] }
+      ]},
+      { id:"trans", name:"造血干细胞移植", variants:[
+        { id:"alb_trans_auto", name:"自体移植", seg:[[2.0,5.0],[2.0,6.0],[3.0,8.0],[1.0,3.0]], dir:0.82, icuW:0.30, maintCost:[0.2,0.5], maintDef:6, maintDir:0.88, skipDrug:["靶向药物"] },
+        { id:"alb_trans_allo", name:"异体移植（同胞全合）", seg:[[5.0,10.0],[5.0,11.0],[6.0,13.0],[2.5,6.0]], dir:0.80, icuW:0.32, maintCost:[0.8,2.5], maintDef:12, maintDir:0.85, skipDrug:["靶向药物"] },
+        { id:"alb_trans_haplo", name:"异体移植（单倍体 / 脐血）", seg:[[6.0,12.0],[6.0,13.0],[7.0,15.0],[3.0,7.0]], dir:0.78, icuW:0.34, maintCost:[1.0,3.0], maintDef:12, maintDir:0.85, skipDrug:["靶向药物"] }
+      ]}
+    ]
+  }
+};
+/* 扁平索引：SCENES[方案ID] 供引擎使用；PLAN_INDEX[病种] = 该病种全部方案 ID */
+const SCENES = {};
+const PLAN_INDEX = {};
+Object.keys(DISEASES).forEach(dz=>{
+  const D = DISEASES[dz];
+  PLAN_INDEX[dz] = [];
+  D.procedures.forEach(op=>{
+    op.variants.forEach(v=>{
+      SCENES[v.id] = Object.assign({}, v, {
+        name: D.name + " · " + op.name + " · " + v.name,
+        dz, op:op.id, opName:op.name, vName:v.name, profile:D.profile
+      });
+      PLAN_INDEX[dz].push(v.id);
+    });
+  });
+});
+const SEG_NAMES = ["手术及麻醉","ICU 重症监护","普通病房住院","康复治疗"];
+const SEG_SHORT = ["手术","ICU","病房","康复"];
+
+/* ================= 常用药品与耗材（典型用量参考，供顾问向家属说明"钱花在哪"）=================
+   cls：甲=甲类 乙=乙类 自费=目录外自费 自购=需家属自行购买（结算单上不体现）
+   用量为典型区间，实际以医嘱为准；价格口径仅作量级参考，不进入引擎金额计算
+   第 5 位 cost=[低,高,单位]：month=每月 / once=一次性或按疗程；big=true 表示差异过大不计入小计 */
+const DRUG_TAG = {甲:["a","甲类"], 乙:["b","乙类"], 自费:["s","自费"], 自购:["buy","自购"]};
+const DRUGS = {
+  ich: {
+    hint: "脑出血住院与康复期用药",
+    groups: [
+      {t:"降颅压与基础输液", items:[
+        ["甲","20% 甘露醇 250ml","约 21–28 袋","降颅内压主力，每 6–8 小时一袋"],
+        ["甲","甘油果糖 250ml","约 14–21 袋","与甘露醇交替降颅压"],
+        ["甲","氯化钠注射液 250–500ml","约 21–35 袋","静脉输液基础液"],
+        ["甲","葡萄糖注射液","约 14–28 袋","溶媒配药、能量补充"],
+        ["甲","10% 氯化钾注射液","约 14–28 支","补充电解质"]
+      ]},
+      {t:"控压 · 镇静 · 抗感染（ICU 常用）", items:[
+        ["乙","乌拉地尔 / 尼卡地平注射液","约 7–21 支","静脉泵入控压，乙类先自付一部分"],
+        ["乙","丙泊酚 / 咪达唑仑","约 7–21 支","镇静镇痛（上呼吸机、昏迷时用）"],
+        ["甲","头孢类抗生素","约 14–21 支","防治肺部等感染"],
+        ["甲","奥美拉唑 / 泮托拉唑","约 7–14 支","防治应激性溃疡"],
+        ["甲","低分子肝素","约 7 支","预防下肢深静脉血栓"],
+        ["自费","人血白蛋白","约 7–14 瓶","重症常用，医保基本不报，单支数百元",[1400,8400,"once"]]
+      ]},
+      {t:"呼吸与管路", items:[
+        ["乙","呼吸机治疗及管路耗材","约 7 天","ICU 按天计费，耗材部分自付"],
+        ["乙","气管切开套管","约 1 套","长期上呼吸机需气切"]
+      ]},
+      {t:"口服与康复", items:[
+        ["甲","口服降压药","约 14–84 片","静脉控压过渡为口服"],
+        ["甲","甲钴胺 / 维生素 B1","约 42–168 片","营养神经"],
+        ["甲","乳果糖","约 14–56 袋","保持大便通畅，避免用力排便升高颅压"]
+      ]},
+      {t:"植入耗材（自付比例高）", items:[
+        ["乙","人工硬脑膜","约 1–2 片","去骨瓣后硬膜修补"],
+        ["乙","钛网","约 1 块","二期颅骨修补用，2–6 万（勾选后已计入总额）"]
+      ]},
+      {t:"外用与自购（结算单上看不到，家属需自备）", buy:true, items:[
+        ["自购","护理垫 / 成人纸尿裤","约 60–120 片/月","卧床期必备，纯自费",[300,600,"month"]],
+        ["自购","压疮防护敷料（泡沫 / 减压贴）","2–4 片/次","长期卧床防压疮，自费",[100,300,"month"]],
+        ["自购","气垫床 / 防压疮床垫","1 张","一次性 300–800 元，也可租",[300,800,"once"]],
+        ["自购","口腔护理液 / 生理性海水","约 2–4 瓶/月","昏迷、鼻饲患者口腔护理",[30,80,"month"]],
+        ["自费","医用弹力袜","1–2 双","预防下肢血栓",[100,300,"once"]],
+        ["自费","肠内营养制剂（鼻饲）","约 4–8 罐/月","昏迷或吞咽障碍，部分自费",[400,1200,"month"]],
+        ["自购","轮椅 / 助行器 / 护理床","1 套","出院后自购；护理床更贵",[500,5000,"once"]]
+      ]}
+    ],
+    foot:"<b>治疗周期参考</b>：急性期约 2–4 周（ICU 数天 + 病房 2–4 周）；病情稳定后康复一般 3–6 个月，部分患者需半年以上才能生活基本自理。康复科住院按住院政策报销，但疗程与天数有边界；<b>护工费、康复器械、护理床、上门护理全部自费</b>。<br><b>提示</b>：上表用量与金额为典型区间估算，实际以医嘱与医院收费为准；<b>甲/乙类归属以广东现行医保目录为准</b>，各地市目录存在差异；人血白蛋白、钛网等属大额自付项，结算单出来前先按上限准备。"
+  },
+  cancer: {
+    hint: "肿瘤综合治疗用药（化疗 / 靶向 / 免疫 / 放疗）",
+    groups: [
+      {t:"化疗与支持治疗（静脉为主）", items:[
+        ["乙","化疗主药（培美曲塞 / 奥沙利铂 / 紫杉醇等）","约 2–6 周期","方案差异极大，单周期数千至数万"],
+        ["甲","止吐（昂丹司琼 / 格拉司琼）","每周期 3–6 支","化疗前后常规"],
+        ["乙","阿瑞匹坦（口服止吐）","每周期 3 粒","强致吐方案用，价格较高"],
+        ["甲","护胃（泮托拉唑 / 奥美拉唑）","每周期 3–7 支","激素与化疗期间常规"],
+        ["乙","护肝（还原型谷胱甘肽 / 多烯磷脂酰胆碱）","每周期 7–14 支"],
+        ["乙","升白针（重组人粒细胞刺激因子）","每周期 3–5 支","化疗后白细胞低时用，部分需自购"],
+        ["乙","营养支持（复方氨基酸 / 脂肪乳）","约 7–14 袋","进食差、消瘦患者"]
+      ]},
+      {t:"靶向与免疫（自费为主，最大隐性开销）", items:[
+        ["自费","靶向药（目录外新药 / 未进医保适应症）","数千–数万/月","占自费大头，需按药名查当地目录",[3000,30000,"month","big"]],
+        ["自费","PD-1 / PD-L1 免疫治疗","约 1–3 万/次，每 3 周","部分适应症已进医保，需逐一核对",[13000,43000,"month","big"]],
+        ["自费","基因检测（用药前必做）","一次性 6000–20000 元","多数地区自费，部分项目可报",[6000,20000,"once","big"]],
+        ["自费","PET-CT / 自费复查项目","约 7000–10000 元/次","分期与疗效评估常用",[7000,10000,"once","big"]]
+      ]},
+      {t:"止痛与对症", items:[
+        ["乙","芬太尼透皮贴（外用贴剂）","约 4–8 贴/月","癌痛常用，贴剂外用，部分自付"],
+        ["甲","羟考酮 / 吗啡缓释片","按需","麻醉药品需办卡，社区可取"],
+        ["乙","加巴喷丁 / 普瑞巴林","约 60–120 粒/月","神经病理性疼痛"],
+        ["甲","乳果糖 / 开塞露","按需","阿片类止痛常见便秘"]
+      ]},
+      {t:"放疗相关", items:[
+        ["乙","放疗定位、计划与复位","1 疗程","按次计费，部分项目自付"],
+        ["自购","放疗区皮肤防护（三乙醇胺乳膏等）","约 1–2 支/疗程","放射性皮炎防护，多需自购",[100,300,"once"]],
+        ["自购","口腔黏膜炎护理（康复新液 / 碳酸氢钠漱口）","约 2–4 瓶","头颈放疗、化疗常见",[50,150,"once"]]
+      ]},
+      {t:"外用与自购（结算单上看不到，家属需自备）", buy:true, items:[
+        ["自购","PICC / 输液港维护耗材","每 7 天 1 次","换药包与敷贴，约 100–300 元/次",[400,1200,"month"]],
+        ["自购","护理垫 / 成人纸尿裤","约 30–60 片/月","卧床或术后短期使用",[150,300,"month"]],
+        ["自购","肠内营养粉（口服补充）","约 2–4 罐/月","体重下降、进食差时",[300,800,"month"]],
+        ["自购","止吐 / 升白口服药（院外自购）","按需","医保目录内外地购药常需自费",[200,600,"month"]],
+        ["自购","医用口罩、手套、消毒用品","按月","免疫力低时防护，纯自费",[50,150,"month"]],
+        ["自费","义乳 / 假发 / 康复辅具","1 套","乳癌、脱发患者",[1000,5000,"once"]]
+      ]}
+    ],
+    foot:"<b>治疗周期参考</b>：化疗常按 21 天或 14 天一个周期，术后辅助化疗一般 4–8 周期；靶向/免疫多为长期用药，按月计费。<b>真正压垮家庭预算的往往不是住院费，而是院外自购的靶向药与营养支持</b>——这部分医保几乎不覆盖，且不在结算单上体现，务必单独向家属说明。<br><b>提示</b>：上表为典型用量参考，实际以医嘱与医院收费为准；<b>甲/乙类归属与靶向药是否可报，取决于药名、适应症与广东现行医保目录，需逐项核对</b>。"
+  },
+  stroke: {
+    hint: "脑梗急性期与康复期用药（溶栓 / 取栓 / 抗栓）",
+    groups: [
+      {t:"溶栓用药（急性期关键）", items:[
+        ["自费","注射用尿激酶 / 阿替普酶（rt-PA）","按适应症 1 支","溶栓药多在目录外，自费比例高，单支费用需按院内药价确认",[3000,10000,"once","big"]],
+        ["自费","注射用替奈普酶","按适应症 1 支","国内常用溶栓药，医保覆盖有限",[5000,15000,"once","big"]]
+      ]},
+      {t:"取栓介入耗材", items:[
+        ["乙","血管内介入耗材（导管、球囊、支架）","1 台","取栓手术耗材，部分项目自付",[8000,30000,"once","big"]]
+      ]},
+      {t:"抗血小板 / 抗凝（长期口服）", items:[
+        ["甲","阿司匹林肠溶片","长期 1 片/日","基础抗血小板，目录内便宜"],
+        ["乙","氯吡格雷","长期 1 片/日","支架术后常用，需评估出血风险"],
+        ["甲","华法林","长期 1 片/日","房颤合并脑梗的经典抗凝"],
+        ["乙","利伐沙班 / 达比加群","长期 1 片/日","新型抗凝，部分自费 300–600 元/月",[300,600,"month"]],
+        ["乙","阿托伐他汀钙","长期 1 片/日","降脂稳定斑块"],
+        ["甲","阿司匹林 + 氯吡格雷双联（短期）","术后 1–3 个月","双联疗程按出院医嘱"]
+      ]},
+      {t:"神经保护与对症", items:[
+        ["乙","依达拉奉","约 14 支","抗氧化神经保护，部分自费"],
+        ["乙","丁苯酞（丁苯酚）","约 14–28 支","改善缺血性脑卒中结局，自费比例较高",[400,900,"month"]],
+        ["甲","胞磷胆碱","约 14–28 支","营养神经"],
+        ["甲","甘露醇 / 甘油果糖","按需","合并脑水肿时使用"],
+        ["乙","胞磷胆碱 + 脑蛋白水解物","约 10–20 支","部分自费 200–500 元/疗程",[200,500,"once"]]
+      ]},
+      {t:"并发症与营养支持", items:[
+        ["甲","头孢类抗生素","约 7–14 支","合并肺部感染"],
+        ["甲","复方氨基酸 / 脂肪乳","约 7–14 袋","进食差时使用"],
+        ["乙","肠内营养制剂（鼻饲）","约 4–8 罐/月","吞咽障碍者长期使用，部分自费",[400,1200,"month"]],
+        ["甲","人血白蛋白","按需","重症或低蛋白血症时使用",[700,4200,"once"]]
+      ]},
+      {t:"外用与自购（结算单上看不到，家属需自备）", buy:true, items:[
+        ["自购","护理垫 / 成人纸尿裤","约 60–120 片/月","卧床期必备",[300,600,"month"]],
+        ["自购","气垫床 / 防压疮床垫","1 张","长期卧床必备，也可租",[300,800,"once"]],
+        ["自购","口腔护理液 / 生理性海水","约 2–4 瓶/月","鼻饲、昏迷患者口腔护理",[30,80,"month"]],
+        ["自费","医用弹力袜","1–2 双","预防下肢静脉血栓",[100,300,"once"]],
+        ["自购","轮椅 / 助行器 / 护理床","1 套","偏瘫后遗症期自购",[500,5000,"once"]],
+        ["自购","抗血栓泵 / 充气压力袜","租赁","术后预防血栓，部分需租赁"]
+      ]}
+    ],
+    foot:"<b>治疗周期参考</b>：急性期住院 2–4 周；溶栓/取栓后康复期 3–6 个月甚至更久，后遗症期多需长期服药与康复训练。<b>脑梗的长期开销主要在康复与护理，而不在住院费</b>——康复训练、针灸推拿、护理床、护工多为自费或目录外，需单独向家属说明。<br><b>提示</b>：上表用量与金额为典型区间估算，实际以医嘱与医院收费为准；<b>溶栓药与取栓耗材的医保覆盖差异大，甲/乙类归属以广东现行医保目录为准</b>，需按具体药名核对。"
+  },
+  alb: {
+    hint: "急性白血病化疗与移植期用药",
+    groups: [
+      {t:"化疗主药（按方案差异极大）", items:[
+        ["乙","蒽环类（柔红霉素 / 去甲氧柔红霉素）","每疗程 3–5 支","AML「3+7」方案核心，乙类先自付一部分"],
+        ["乙","阿糖胞苷（Ara-C）","每疗程 7–14 支","AML 标准方案骨架药，价格较低"],
+        ["甲","长春新碱 / 环磷酰胺","按方案","ALL 方案常用，目录内"],
+        ["乙","左旋门冬酰胺酶 / 培门冬酶","按方案","ALL 专用，培门冬酶价格较高"],
+        ["乙","依托泊苷 / 米托蒽醌","按方案","二线或强化方案"],
+        ["自费","维奈克拉（Venetoclax）","每月 1–2 盒","老年 / 不耐受强化化疗者，多数需自费",[8000,25000,"month","big"]],
+        ["自费","FLT3 / IDH 等靶向药","按月","需按基因分型选用，目录覆盖有限",[10000,40000,"month","big"]]
+      ]},
+      {t:"支持治疗（化疗期必备，占比很高）", items:[
+        ["乙","升白针（重组人粒细胞刺激因子）","每疗程 5–10 支","白细胞低时用，部分需自购"],
+        ["乙","抗真菌药（伏立康唑 / 泊沙康唑）","按需","粒缺期发热首选，部分自费",[2000,8000,"month"]],
+        ["乙","抗细菌药（哌拉西林他唑巴坦等）","按需","粒缺合并感染，费用随感染程度波动大"],
+        ["甲","止吐（昂丹司琼 / 格拉司琼）","每疗程 3–6 支","化疗前后常规"],
+        ["甲","护胃 / 护肝","每疗程 3–7 支","激素与化疗期间常规"],
+        ["自费","人血白蛋白","按需 5–15 瓶","低蛋白或大量输液后，医保基本不报",[2500,9000,"once"]],
+        ["自费","静脉丙种球蛋白（IVIG）","按需 3–10 瓶","重症感染或移植后，价格高",[6000,30000,"once","big"]]
+      ]},
+      {t:"输血支持（长期依赖者开销大）", items:[
+        ["甲","红细胞输注","按需 2–6 单位","血红蛋白低时输注，血费本身可报"],
+        ["甲","血小板输注","按需 1–3 治疗量","血小板低时预防出血，费用按治疗量计"],
+        ["自费","输血相关耗材与配血","按次","部分项目需自付",[300,1200,"month"]]
+      ]},
+      {t:"移植相关（仅移植方案显示）", items:[
+        ["乙","预处理化疗 / 放疗","1 次","清髓或减低强度方案，5–15 万不等"],
+        ["自费","供者筛查与 HLA 配型","1 套","亲属配型费用较低，骨髓库检索更高",[5000,30000,"once","big"]],
+        ["乙","免疫抑制剂（环孢素 / 他克莫司）","长期","抗排异主力，年 3–8 万",[2500,6500,"month"]],
+        ["乙","抗排异辅助（吗替麦考酚酯 / 甲氨蝶呤）","长期","联合用药，部分自付",[800,3000,"month"]],
+        ["乙","层流病房","每日 1000–3000 元","30–50 天，移植期主要支出之一"],
+        ["自费","移植后抗病毒 / 抗真菌预防","移植后 3–6 个月","部分需自费",[2000,8000,"month"]]
+      ]},
+      {t:"外用与自购（结算单上看不到，家属需自备）", buy:true, items:[
+        ["自购","医用口罩 / 手套 / 消毒用品","按月","粒缺期与移植后严格防护，纯自费",[200,600,"month"]],
+        ["自购","低菌饮食 / 高压灭菌餐","按月","移植期与粒缺期必须，家属自行准备",[1500,4000,"month"]],
+        ["自购","口腔护理（漱口液 / 康复新液）","按月","化疗口腔黏膜炎高发",[100,400,"month"]],
+        ["自购","PICC / 输液港维护耗材","每 7 天 1 次","换药包与敷贴",[400,1200,"month"]],
+        ["自购","护理垫 / 成人纸尿裤","按月","卧床与粒缺期",[150,400,"month"]],
+        ["自购","空气净化器 / 紫外线消毒设备","1 套","移植后居家防护，一次性投入",[1000,5000,"once"]],
+        ["自费","外购止吐 / 升白口服药","按需","院外自购常需自费",[200,600,"month"]]
+      ]}
+    ],
+    foot:"<b>治疗周期参考</b>：AML 诱导缓解约 4–6 周，巩固 3–4 个疗程（每疗程约 1 个月），全程 6–10 个月；ALL 维持治疗需 2–3 年，每月口服化疗药。<b>移植是一次性大额，但移植后的抗排异与复查要持续 1–2 年，每年仍有数万元</b>——这部分容易被忽略，务必单独提示家属。<br><b>钱花在哪</b>：急性白血病的开销大头不是化疗药本身，而是<b>粒缺期的抗感染、输血支持和层流病房</b>。一旦合并重症感染，费用可能翻倍甚至更多。<br><b>提示</b>：上表用量与金额为典型区间估算，实际以医嘱与医院收费为准；<b>靶向药是否可报取决于基因分型与广东现行医保目录，需逐项核对</b>。移植费用各口径差异极大（住院口径 15–20 万 vs 全程口径 30–80 万），本工具按住院 + 短期并发症口径估算。"
+  }
+};
+
+/* ================= 医院库（按就诊城市分库）=================
+   字段：[医院名称, 镇区/区, 等级(1/2/3), ABC分类]；等级为初值，顾问可核对修改，等级直接影响起付线
+   东莞 42 家 = 《东莞市医院ABC分类表》全量；江门 9 家主要医院；
+   广州/佛山/中山/珠海/深圳 = 本地患者跨市就医常去的三甲（等级仅作参考，机构与等级以医保目录为准） */
+const LV_NAME = {1:"一级以下", 2:"二级", 3:"三级"};
+const CITY_NAME = {dg:"东莞", jm:"江门", gz:"广州", fs:"佛山", zs:"中山", zh:"珠海", sz:"深圳", other:"其他城市"};
+const HOSP_DG = [
+  ["东莞市人民医院红楼院区","万江",3,"A"], ["东莞市滨海湾中心医院","虎门",3,"A"], ["东莞东华医院","东城",3,"A"],
+  ["东莞市松山湖中心医院（原第三人民医院）","松山湖",3,"B"], ["东莞市东南部中心医院","塘厦",3,"B"], ["东莞台心医院","东城",3,"B"],
+  ["东莞市厚街医院","厚街",3,"B"], ["东莞市清溪医院","清溪",2,"B"], ["东莞市大朗医院","大朗",2,"B"],
+  ["东莞市东部中心医院","常平",3,"B"], ["东莞市第八人民医院","石龙",3,"B"], ["东莞市妇幼保健院","东城",3,"B"],
+  ["东莞市长安医院","长安",3,"C"], ["东莞康华医院","南城",3,"C"], ["东莞市中医院","东城",3,"C"],
+  ["东莞市石碣医院","石碣",2,"C"], ["东莞市黄江医院","黄江",2,"C"], ["东莞市中西医结合医院","大岭山",2,"C"],
+  ["东莞市寮步医院","寮步",2,"C"], ["东莞市石排医院","石排",1,"C"], ["东莞市企石医院","企石",1,"C"],
+  ["东莞市桥头医院","桥头",2,"C"], ["东莞市横沥医院","横沥",2,"C"], ["东莞市凤岗医院","凤岗",2,"C"],
+  ["东莞广济医院","东城",2,"C"], ["东莞市南城医院","南城",2,"C"], ["东莞常安医院","常平",2,"C"],
+  ["东莞市虎门医院","虎门",2,"C"], ["东莞市谢岗医院","谢岗",1,"C"], ["东莞市茶山医院","茶山",1,"C"],
+  ["东莞市樟木头医院","樟木头",2,"C"], ["东莞市长安镇乌沙医院","长安",1,"C"], ["东莞三局医院","塘厦",2,"C"],
+  ["东莞市东坑医院","东坑",1,"C"], ["东莞市沙田医院","沙田",1,"C"], ["东莞仁康医院","厚街",2,"C"],
+  ["东莞光华医院","寮步",2,"C"], ["东莞长安新安医院","长安",1,"C"], ["东莞市中堂医院","中堂",1,"C"],
+  ["东莞曙光广华医院","虎门",1,"C"], ["东莞市虎门镇北栅医院","虎门",1,"C"], ["东莞市第六人民医院","莞城",2,"C"]
+];
+const HOSP_JM = [
+  ["江门市中心医院","蓬江",3,"—"], ["江门市五邑中医院","蓬江",3,"—"], ["江门市人民医院","蓬江",3,"—"],
+  ["江门市妇幼保健院","蓬江",3,"—"], ["江门市新会区人民医院","新会",3,"—"], ["台山市人民医院","台山",3,"—"],
+  ["开平市中心医院","开平",3,"—"], ["鹤山市人民医院","鹤山",3,"—"], ["恩平市人民医院","恩平",2,"—"]
+];
+const HOSP_GZ = [
+  ["中山大学附属第一医院","越秀",3,"—"], ["广东省人民医院","越秀",3,"—"], ["南方医科大学南方医院","白云",3,"—"],
+  ["中山大学肿瘤防治中心","越秀",3,"—"], ["南方医科大学珠江医院","海珠",3,"—"], ["广州医科大学附属第一医院","越秀",3,"—"],
+  ["中山大学孙逸仙纪念医院","海珠",3,"—"], ["中山大学附属第三医院","天河",3,"—"], ["广州市第一人民医院","越秀",3,"—"],
+  ["广东省中医院","越秀",3,"—"], ["暨南大学附属第一医院（广州华侨医院）","天河",3,"—"], ["广州市妇女儿童医疗中心","天河",3,"—"]
+];
+const HOSP_FS = [
+  ["佛山市第一人民医院","禅城",3,"—"], ["佛山市中医院","禅城",3,"—"], ["南方医科大学顺德医院","顺德",3,"—"]
+];
+const HOSP_ZS = [["中山市人民医院","石岐",3,"—"], ["中山市博爱医院","东区",3,"—"]];
+const HOSP_ZH = [["珠海市人民医院","香洲",3,"—"], ["中山大学附属第五医院","香洲",3,"—"]];
+const HOSP_SZ = [
+  ["深圳市人民医院","罗湖",3,"—"], ["北京大学深圳医院","福田",3,"—"],
+  ["深圳市第二人民医院","福田",3,"—"], ["香港大学深圳医院","福田",3,"—"]
+];
+const HOSP = {dg:HOSP_DG, jm:HOSP_JM, gz:HOSP_GZ, fs:HOSP_FS, zs:HOSP_ZS, zh:HOSP_ZH, sz:HOSP_SZ};
+
+/* 按当前就诊城市重建医院下拉（选城市 → 只列该城市医院，避免几十家平铺） */
+function buildHospitals(){
+  const sel = $("f_hosp"), city = $("f_city").value;
+  const arr = HOSP[city] || [];
+  sel.innerHTML = '<option value="" selected>— 请选择医院 —</option>';
+  if(arr.length){
+    const g = document.createElement("optgroup");
+    g.label = CITY_NAME[city] + "（" + arr.length + " 家）";
+    arr.forEach(([n, area, lv])=>{
+      const o = document.createElement("option");
+      o.value = n + "|" + lv + "|" + area;
+      o.textContent = n + " · " + LV_NAME[lv];
+      g.appendChild(o);
+    });
+    sel.appendChild(g);
+  }
+  const other = document.createElement("option");
+  other.value = "other";
+  other.textContent = arr.length ? "其他医院（手动选等级）" : "该城市暂无内置医院（手动选等级）";
+  sel.appendChild(other);
+  return arr.length;
+}
+function hospInfo(){
+  const v = $("f_hosp").value, city = $("f_city").value;
+  if(!v || v === "other") return {name: v === "other" ? "其他医院" : "", city, area:"", abc:""};
+  const [name, lv, area] = v.split("|");
+  const src = HOSP[city] || [];
+  return {name, city, area, abc:(src.find(h=>h[0]===name)?.[3] || "")};
+}
+
+/* ================= 医保规则（江门 / 东莞，按官方文件核实 2026-11-09）=================
+   江门：市政府《2025年度江门市基本医疗保险待遇标准》＋2026年度解读（框架延续）：
+         住院起付 一级500/二级600/三级900；职工比例 93/90/83（退休起付-100、比例+3pp）；
+         居民比例 85/80/65；职工大病起付0.5万（≤20万 85%、>20万 90%）；居民大病起付1万（≤12万 60%、>12万 70%）
+   东莞：市政府官网发布口径 + 东莞12345/东莞社保《待遇标准表》（2025）：
+         住院按费用段支付（≤10万 / >10万）基础比例 一级95/85、二级90/80、三级85/75（退休各段+5pp）；
+         起付线 市内 一级500/二级800/三级1300（14岁以下儿童及金卡减半）；
+         银卡=单建统筹职工医保、金卡=统账结合职工医保：金卡住院比例+5pp、起付线减半、大病起付减半；
+         大病起付 1.2万（金卡 0.6万），≤10万 70%、>10万 80%
+         市外起付线为独立三档（银卡/居民 1000/1500/2000、金卡减半 500/750/1000），2026-11-11 核验；
+      金卡退休比例已核验（一级100/100、二级95/90、三级95/85）；
+      金卡可另选"大额补助"（目录内自付超起付部分 ≤10万90%/>10万75%）本版未建模（低估金卡待遇）*/
+function tierCalc(amount, floor, tiers){
+  const over = amount - floor;
+  if(over <= 0) return 0;
+  let acc = 0, lo = 0;
+  for(const [cap, r] of tiers){
+    const part = Math.min(over, cap) - lo;
+    if(part > 0) acc += part * r;
+    lo = Math.min(over, cap);
+    if(over <= cap) break;
+  }
+  return acc;
+}
+const RULES = {
+  dg_silver:     {label:"东莞 · 职工银卡（单建统筹）", deduct:{1:500,2:800,3:1300}, extDeduct:{1:1000,2:1500,3:2000},
+               tiersByLevel:{1:[[10,0.95],[Infinity,0.85]], 2:[[10,0.90],[Infinity,0.80]], 3:[[10,0.85],[Infinity,0.75]]},
+               big:{floor:1.2, tiers:[[10,0.70],[Infinity,0.80]]}},
+  dg_silver_ret: {label:"东莞 · 职工银卡（退休）",     deduct:{1:500,2:800,3:1300}, extDeduct:{1:1000,2:1500,3:2000},
+               tiersByLevel:{1:[[10,1.00],[Infinity,0.90]], 2:[[10,0.95],[Infinity,0.85]], 3:[[10,0.90],[Infinity,0.80]]},
+               big:{floor:1.2, tiers:[[10,0.70],[Infinity,0.80]]}},
+  dg_gold:       {label:"东莞 · 职工金卡（统账结合）", deduct:{1:250,2:400,3:650}, extDeduct:{1:500,2:750,3:1000},
+               aid:{floor:0.0526, tiers:[[10,0.90],[Infinity,0.75]]},
+               tiersByLevel:{1:[[10,1.00],[Infinity,0.90]], 2:[[10,0.95],[Infinity,0.85]], 3:[[10,0.90],[Infinity,0.80]]},
+               big:{floor:0.6, tiers:[[10,0.70],[Infinity,0.80]]}},
+  dg_gold_ret:   {label:"东莞 · 职工金卡（退休）",     deduct:{1:250,2:400,3:650}, extDeduct:{1:500,2:750,3:1000},
+               aid:{floor:0.0526, tiers:[[10,0.90],[Infinity,0.75]]},
+               tiersByLevel:{1:[[10,1.00],[Infinity,0.90]], 2:[[10,1.00],[Infinity,0.90]], 3:[[10,0.95],[Infinity,0.85]]},
+               big:{floor:0.6, tiers:[[10,0.70],[Infinity,0.80]]}},
+  dg_res:     {label:"东莞 · 居民医保",         deduct:{1:500,2:800,3:1300}, extDeduct:{1:1000,2:1500,3:2000},
+               tiersByLevel:{1:[[10,0.95],[Infinity,0.85]], 2:[[10,0.90],[Infinity,0.80]], 3:[[10,0.85],[Infinity,0.75]]},
+               big:{floor:1.2, tiers:[[10,0.70],[Infinity,0.80]]}},
+  jm_emp:     {label:"江门 · 职工医保（在职）", deduct:{1:500,2:600,3:900}, extDeduct:1500,
+               rate:{1:0.93,2:0.90,3:0.83},
+               rateExt:{ref:{1:0.83,2:0.80,3:0.73}, noref:{1:0.73,2:0.70,3:0.63}},
+               bigExcludeDeduct:true,
+               big:{floor:0.5, tiers:[[20,0.85],[Infinity,0.90]]},
+               bigExt:{ref:[[20,0.75],[Infinity,0.80]], noref:[[20,0.65],[Infinity,0.70]]}},
+  jm_emp_ret: {label:"江门 · 职工医保（退休）", deduct:{1:400,2:500,3:800}, extDeduct:1500,
+               rate:{1:0.96,2:0.93,3:0.86},
+               rateExt:{ref:{1:0.83,2:0.80,3:0.73}, noref:{1:0.73,2:0.70,3:0.63}},
+               bigExcludeDeduct:true,
+               big:{floor:0.5, tiers:[[20,0.85],[Infinity,0.90]]},
+               bigExt:{ref:[[20,0.75],[Infinity,0.80]], noref:[[20,0.65],[Infinity,0.70]]}},
+  jm_res:     {label:"江门 · 居民医保",         deduct:{1:500,2:600,3:900}, extDeduct:1500,
+               rate:{1:0.85,2:0.80,3:0.65},
+               rateExt:{ref:{1:0.75,2:0.70,3:0.55}, noref:{1:0.65,2:0.60,3:0.45}},
+               bigExcludeDeduct:true,
+               big:{floor:1.0, tiers:[[12,0.60],[Infinity,0.70]]},
+               bigExt:{ref:[[12,0.50],[Infinity,0.60]], noref:[[12,0.40],[Infinity,0.50]]}},
+  none:       {label:"无医保（全额自费）", none:true,
+               deduct:{1:0,2:0,3:0}, extDeduct:0,
+               big:{floor:1e9, tiers:[[Infinity,0]]}}
+};
+const ETHNIC_SELF = 0.01;                  // 乙类先行自付 1%（药品口径，耗材另计——演示版统一 1%）
+const CAT_SHARE = 0.30;                    // 目录内费用中乙类占比（演示假设）
+
+const $ = id => document.getElementById(id);
+const state = {comp:new Set(), dc:new Set(), dz:null, op:null, vid:null, city:"dg", card:null, resType:null, retired:false};
+const fmt = v => v.toFixed(1);
+const fmt2 = v => v.toFixed(2);
+
+/* ---------- 场景按钮：病种 → 术式 → 细分方案（三层） ---------- */
+function sceneChip(box, label, sub, active, onClick, key){
+  const d = document.createElement("button");
+  d.className = "scene" + (active ? " on" : "");
+  if(key) d.dataset.k = key;
+  d.innerHTML = '<div class="st">' + label + '</div>' + (sub ? '<div class="sd">' + sub + '</div>' : "");
+  d.onclick = onClick;
+  box.appendChild(d);
+  return d;
+}
+function segRange(seg){ return seg.reduce((a,x)=>a+x[0],0) + "–" + seg.reduce((a,x)=>a+x[1],0) + " 万"; }
+/* 第一层：病种 */
+function renderDz(){
+  const box = $("dzChips"); box.innerHTML = "";
+  Object.keys(DISEASES).forEach(dz=>{
+    const D = DISEASES[dz];
+    const n = PLAN_INDEX[dz].length;
+    sceneChip(box, D.name, n + " 个方案可选", state.dz === dz, ()=>selectDisease(dz), "dz_" + dz);
+  });
+}
+/* 第二层：术式（随病种切换） */
+function renderOp(){
+  const box = $("opChips"); box.innerHTML = "";
+  const D = DISEASES[state.dz];
+  if(!D){ $("opGrp").style.display = "none"; $("vrGrp").style.display = "none"; return; }
+  $("opGrp").style.display = "block";
+  D.procedures.forEach(op=>{
+    const lo = Math.min(...op.variants.map(v=>v.seg.reduce((a,x)=>a+x[0],0)));
+    const hi = Math.max(...op.variants.map(v=>v.seg.reduce((a,x)=>a+x[1],0)));
+    sceneChip(box, op.name, fmt(lo) + "–" + fmt(hi) + " 万 · " + op.variants.length + " 种",
+      state.op === op.id, ()=>selectProcedure(op.id), "op_" + op.id);
+  });
+}
+/* 第三层：细分方案（随术式切换） */
+function renderVr(){
+  const box = $("vrChips"); box.innerHTML = "";
+  const D = DISEASES[state.dz];
+  const op = D && D.procedures.find(o=>o.id === state.op);
+  if(!op){ $("vrGrp").style.display = "none"; return; }
+  $("vrGrp").style.display = "block";
+  op.variants.forEach(v=>{
+    const sub = v.perCourse
+      ? "单疗程 " + segRange(v.seg) + " × " + v.courseDef + " 疗程"
+      : segRange(v.seg) + (v.maintCost ? " + 维持" : "");
+    sceneChip(box, v.name, sub, state.vid === v.id, ()=>selectVariant(v.id), v.id);
+  });
+}
+function renderSceneChips(){ renderDz(); renderOp(); renderVr(); }
+function selectDisease(dz){
+  state.dz = dz; state.op = null; state.vid = null;
+  $("f_treat").value = "";
+  renderSceneChips();
+  $("planCmpBox").style.display = "none";
+  calc();
+  toast("已选病种：" + DISEASES[dz].name + "，请继续选择术式");
+}
+function selectProcedure(op){
+  state.op = op; state.vid = null;
+  $("f_treat").value = "";
+  renderSceneChips();
+  $("planCmpBox").style.display = "none";
+  calc();
+  const o = DISEASES[state.dz].procedures.find(x=>x.id === op);
+  toast("已选术式：" + o.name + "，请选择细分方案");
+}
+function selectVariant(vid){
+  const v = SCENES[vid];
+  state.vid = vid;
+  $("f_treat").value = vid;
+  autoIcu(v);
+  renderSceneChips();
+  calc();
+  toast("已载入方案：" + v.vName + "（" + v.opName + "）");
+}
+/* 载入方案时按病种/术式给一个合理的 ICU 天数初值（顾问可改） */
+function autoIcu(v){
+  if(v.drug){ $("f_icu").value = 1; }
+  else if(v.dz === "alb"){ $("f_icu").value = v.op === "trans" ? 14 : 3; }
+  else if(v.dz === "ich"){ $("f_icu").value = 7; }
+  else if(v.dz === "stroke"){ $("f_icu").value = v.op === "cons" ? 2 : 5; }
+  else { $("f_icu").value = Math.max(3, parseInt($("f_icu").value)||3); }
+  syncCourseInputs(v);
+}
+/* 疗程 / 维持月数：仅血液病方案显示，切换方案时带出默认值 */
+function syncCourseInputs(v){
+  const sc = v || (state.vid && SCENES[state.vid]) || null;
+  const isBlood = !!(sc && (sc.perCourse || sc.maintCost));
+  $("courseRow").style.display = isBlood ? "flex" : "none";
+  $("courseTip").style.display = isBlood ? "block" : "none";
+  syncDcInput(v);
+  if(!isBlood) return;
+  if(sc.perCourse){
+    $("f_course").value = sc.courseDef || 1;
+    $("f_course").disabled = false;
+    $("courseHint").textContent = "单疗程约 " + segRangeNum(sc.seg) + " 万，总额 = 单疗程 × 次数";
+  }else{
+    $("f_course").value = 1;
+    $("f_course").disabled = true;
+    $("courseHint").textContent = "移植按 1 次计费，不可调整";
+  }
+  const hasMaint = !!sc.maintCost;
+  $("f_maint").value = hasMaint ? (sc.maintDef || 0) : 0;
+  $("f_maint").disabled = !hasMaint;
+  $("maintHint").textContent = hasMaint
+    ? "抗排异 " + sc.maintCost[0] + "–" + sc.maintCost[1] + " 万/月 × 月数（按 0 则不计）"
+    : "该方案无移植后维持费用";
+}
+/* 去骨瓣二期修补：仅「开颅 + 去骨瓣减压」方案显示，切到其他方案自动取消勾选 */
+function syncDcInput(v){
+  const sc = v || (state.vid && SCENES[state.vid]) || null;
+  const allow = !!(sc && sc.dcCost);
+  $("dcRow").style.display = allow ? "block" : "none";
+  if(!allow && state.dc.size){ state.dc.clear(); refreshChips(); }
+}
+function segRangeNum(seg){
+  const lo = seg.reduce((a,x)=>a+x[0],0), hi = seg.reduce((a,x)=>a+x[1],0);
+  return fmt(lo) + "–" + fmt(hi);
+}
+/* 兼容旧入口：按方案 ID 直接载入 */
+function applyScene(k){
+  const v = SCENES[k]; if(!v) return;
+  state.dz = v.dz; state.op = v.op; state.vid = k;
+  $("f_treat").value = k;
+  autoIcu(v);
+  renderSceneChips();
+  calc();
+  toast("已载入方案：" + v.name);
+}
+/* 同病种各方案对比（同一参数下横向比费用）—— 表格式，方案多时仍可横向对齐比较 */
+function comparePlans(){
+  if(!state.dz){ toast("请先选择病种"); return; }
+  const p = gatherParams();
+  if(!p.ins){ toast("请先选择参保类型再对比"); return; }
+  const ids = PLAN_INDEX[state.dz];
+  /* 血液病方案各自的疗程数/维持月数基准不同，对比时必须各用各的默认值，
+     否则「巩固强化(4疗程)」和「全程化疗(5疗程)」会被按同一疗程数比较而失真 */
+  const rs = ids.map(id=>{
+    const v = SCENES[id];
+    const pp = Object.assign({}, p, {treat: id});
+    if(v.perCourse) pp.course = v.courseDef || 1;
+    if(v.maintCost) pp.maint = (pp.maint > 0 ? pp.maint : (v.maintDef || 0));
+    else pp.maint = 0;
+    return {id, r: computeCase(pp)};
+  });
+  const minSelf = Math.min(...rs.map(x=>x.r.self)), maxSelf = Math.max(...rs.map(x=>x.r.self));
+  const spread = maxSelf - minSelf;
+  const money = v => fmt(v);
+  const box = $("planCmpBox");
+  box.style.display = "block";
+
+  const row = ({id, r})=>{
+    const s = SCENES[id];
+    const cur = id === state.vid, best = r.self === minSelf, worst = r.self === maxSelf;
+    const pct = (r.self/r.total*100).toFixed(0);
+    return '<div class="pc-row' + (best ? " best" : "") + (cur ? " cur" : "") + '">'
+      + '<div class="pc-nm"><b>' + s.vName + '</b>'
+        + '<span class="pc-op">' + s.opName
+          + (s.perCourse ? " · " + (s.courseDef || 1) + " 疗程" : "")
+          + (s.maintCost ? " · 维持 " + (s.maintDef || 0) + " 月" : "")
+          + (cur ? ' · 当前方案' : "") + '</span>'
+        + (cur || best || (worst && spread >= 0.3)
+            ? '<span style="display:block;margin-top:2px">'
+              + (cur ? '<span class="pc-flag c">当前</span>' : "")
+              + (best ? '<span class="pc-flag b">最省</span>' : "")
+              + (worst && spread >= 0.3 ? '<span class="pc-flag c">最贵</span>' : "")
+              + '</span>'
+            : "")
+        + '</div>'
+      + '<div class="pc-v">' + money(r.self) + ' 万</div>'
+      + '<div class="pc-tot">' + money(r.totalLo) + "–" + money(r.totalHi) + ' 万</div>'
+      + '<div class="pc-pct">' + pct + '%</div>'
+      + '</div>';
+  };
+
+  box.innerHTML = '<div class="pc-head">'
+      + '<span class="pc-t">同病种方案对比 · ' + DISEASES[state.dz].name + '</span>'
+      + '<span class="pc-sub">同一病情、同一参保条件下；按自费从低到高排列</span>'
+    + '</div>'
+    + (spread >= 0.3
+        ? '<div class="cmp-note" style="margin-bottom:8px">💡 同样病情：<b>最省方案比最贵方案少自费 ' + spread.toFixed(1) + ' 万</b>。方案选择直接决定家庭现金缺口，可据此与家属沟通。</div>'
+        : '<div class="cmp-note" style="margin-bottom:8px">当前参数下各方案自费差异不大，方案选择对家庭负担影响有限。</div>')
+    + '<div class="pc-row hd"><div>方案（术式）</div><div style="text-align:right">自费</div>'
+      + '<div style="text-align:right">总费用区间</div><div style="text-align:right">占比</div></div>'
+    + '<div class="pc-list">' + rs.slice().sort((a,b)=>a.r.self-b.r.self).map(row).join("") + '</div>'
+    + '<div class="cmp-warn">⚠️ 各方案<b>适应病情不同</b>，不是"选便宜的就行"——本表只对比<b>同等病情下不同做法</b>的钱差，术式由医生按病情定。'
+      + '<br>自费占比 = 自费 ÷ 典型档总费用；对比为同一参数下的口径估算，实际以医院结算单为准。</div>';
+}
+
+/* ---------- 病情文本解析（演示版：关键词规则）----------
+   两阶段：先判病种，再在该病种内定位最具体的方案；病种未命中时回落到全局方案规则 */
+const DZ_RULES = [
+  [/急性白血病|急性髓系|急性淋巴|AML|ALL|血癌/i, "alb"],
+  [/白血病/, "alb"],
+  [/脑出血|颅内出血|血肿/, "ich"],
+  [/脑梗死|脑梗塞|脑梗|中风/, "stroke"],
+  [/肺癌|肺叶|肺部肿瘤/, "lc"],
+  [/恶性肿瘤|肿瘤|癌|肉瘤|淋巴瘤/, "tum"]
+];
+const PLAN_RULES = {
+  alb: [
+    [/单倍体|脐血|半相合/, "alb_trans_haplo", 5],
+    [/自体移植|自体干细胞/, "alb_trans_auto", 5],
+    [/异体移植|异基因|同胞全合|骨髓移植|移植/, "alb_trans_allo", 4],
+    [/巩固|强化/, "alb_consol", 3],
+    [/诱导|缓解/, "alb_induct", 3],
+    [/化疗/, "alb_chemo_all", 2]
+  ],
+  ich: [
+    [/去骨瓣|减压/, "ich_cran_dc", 5],
+    [/动脉瘤|夹闭/, "ich_cran_aneurysm", 5],
+    [/后颅窝|脑干/, "ich_cran_post", 5],
+    [/内镜/, "ich_drain_endo", 4],
+    [/立体定向/, "ich_drain_stereo", 4],
+    [/开颅/, "ich_cran", 3],
+    [/引流|微创|钻孔/, "ich_drain", 3],
+    [/保守|不开刀|未手术/, "ich_cons", 2]
+  ],
+  tum: [
+    [/靶向|免疫|pd-?1/i, "tum_target", 4],
+    [/放疗/, "tum_radio", 4],
+    [/姑息/, "tum_surg_pal", 3],
+    [/化疗/, "tum_chemo", 3],
+    [/根治|手术/, "tum_surg", 2]
+  ],
+  lc: [
+    [/靶向|免疫|pd-?1/i, "lc_target", 4],
+    [/放疗/, "lc_radio", 4],
+    [/化疗/, "lc_chemo", 3],
+    [/肺叶|切除|手术/, "lc_lobectomy", 3],
+    [/栓塞|介入止血/, "lc_embo", 3]
+  ],
+  stroke: [
+    [/支架取栓|动脉支架/, "stroke_stent", 4],
+    [/取栓/, "stroke_tectomy", 4],
+    [/溶栓|rt-?pa|替奈普酶/i, "stroke_ivt", 4],
+    [/保守|抗栓|抗凝/, "stroke_cons", 3]
+  ]
+};
+/* 病种默认方案（仅识别到病种、未识别到具体术式时使用） */
+const DZ_DEFAULT = {alb:"alb_chemo_all", ich:"ich_cons", tum:"tum_surg", lc:"lc_lobectomy", stroke:"stroke_cons"};
+/* 返回 {dz, vid, hit} */
+function parsePlanFromText(t){
+  let dz = null;
+  for(const [re, d] of DZ_RULES){ if(re.test(t)){ dz = d; break; } }
+  const pools = dz ? [dz] : Object.keys(PLAN_RULES);
+  let best = null;
+  pools.forEach(d=>{
+    (PLAN_RULES[d]||[]).forEach(([re, vid, pri])=>{
+      if(re.test(t) && (!best || pri > best.pri)) best = {dz:d, vid, pri};
+    });
+  });
+  if(best) return {dz:best.dz, vid:best.vid, hit:true};
+  if(dz) return {dz, vid:DZ_DEFAULT[dz], hit:true};
+  return {dz:null, vid:null, hit:false};
+}
+function applyKwPlan(){
+  const t = $("f_text").value;
+  const r = parsePlanFromText(t);
+  if(!r.dz) return false;
+  const v = SCENES[r.vid];
+  state.dz = v.dz; state.op = v.op; state.vid = v.id;
+  $("f_treat").value = v.id;
+  autoIcu(v);
+  renderSceneChips();
+  toast("已识别「" + DISEASES[v.dz].name + " · " + v.opName + " · " + v.vName + "」，可点第三步修改");
+  return true;
+}
+const KW = [
+  [/昏迷|叫不醒|没意识/, ()=>{ $("f_consc").value="coma"; }],
+  [/嗜睡|迷糊/, ()=>{ $("f_consc").value="drowsy"; }],
+  [/清醒|意识清楚/, ()=>{ $("f_consc").value="alert"; }],
+  [/肺部感染|肺炎|发烧|发热/, ()=>{ state.comp.add("pulm"); }],
+  [/二次出血|再出血/, ()=>{ state.comp.add("rebleed"); }],
+  [/江门/, ()=>{ state.city="jm"; }],
+  [/东莞/, ()=>{ state.city="dg"; }],
+  [/江门/, ()=>{ state.city="jm"; }],
+  [/东莞/, ()=>{ state.city="dg"; }],
+  [/金卡|统账结合/, ()=>{ state.card="gold"; }],
+  [/银卡|单建统筹/, ()=>{ state.card="silver"; }],
+  [/居民医保|城乡居民|居民/, ()=>{ state.resType="res"; }],
+  [/职工.*一档|一档|职工医保|职工/, ()=>{ if(!state.resType) state.resType="emp"; }],
+  [/退休/, ()=>{ state.retired=true; }],
+  [/(东莞|江门|金卡|银卡|职工|居民|退休)/, ()=>{
+    // 汇总：按 城市 + 卡类/参保类型 + 退休状态 定位选项
+    if(state.city==="jm"){
+      $("f_ins").value = state.resType==="res" ? "jm_res" : (state.retired ? "jm_emp_ret" : "jm_emp");
+    }else{
+      if(state.resType==="res"){ $("f_ins").value = "dg_res"; }
+      else{
+        const gold = state.card==="gold";
+        $("f_ins").value = gold ? (state.retired ? "dg_gold_ret" : "dg_gold")
+                                : (state.retired ? "dg_silver_ret" : "dg_silver");
+      }
+    }
+  }],
+  [/icu|重症监护/i, ()=>{}],
+];
+function parseText(){
+  const t = $("f_text").value;
+  if(!t.trim()){ toast("请先粘贴病情描述"); return; }
+  let hit = 0;
+  KW.forEach(([re,fn])=>{ if(re.test(t)){ fn(); hit++; } });
+  const icuM = t.match(/icu[^0-9]{0,6}第?\s*(\d+)/i) || t.match(/(\d+)\s*天[^。]{0,8}icu/i);
+  if(icuM){ $("f_icu").value = Math.min(60, parseInt(icuM[1])); hit++; }
+  // 医院识别：在文本里找医院库中的院名（含去掉"红楼院区"等后缀的别名），命中则切城市+选中医院
+  const m = matchHospital(t);
+  if(m){
+    $("f_city").value = m.city; buildHospitals();
+    $("f_level").value = m.lv; $("f_level").disabled = true;
+    $("f_hosp").value = m.value;
+    $("hospHint").textContent = "该院等级：" + LV_NAME[m.lv] + (m.area ? "（" + m.area + "）" : "") + "｜不符可切“其他医院”手选";
+    syncVisitAuto(); hit++;
+  }
+  onInsChanged();
+  if(applyKwPlan()) hit++;
+  refreshChips(); calc();
+  toast(hit ? "已解析 " + hit + " 处关键信息（演示版）" : "未识别到关键词，试试场景按钮");
+}
+/* 文本里识别医院（长名优先；支持"东莞市人民医院"→红楼院区这类简称） */
+function matchHospital(t){
+  let best = null;
+  Object.keys(HOSP).forEach(city=>{
+    HOSP[city].forEach(([name, area, lv])=>{
+      const alias = name.replace(/（.*?）/g, "").replace(/红楼院区$/, "");
+      if(!t.includes(alias)) return;
+      if(!best || alias.length > best.alias.length) best = {city, name, area, lv, alias};
+    });
+  });
+  if(!best) return null;
+  const target = HOSP[best.city].find(h=>h[0]===best.name);
+  return {...best, value: best.name + "|" + target[2] + "|" + target[1]};
+}
+
+/* ---------- 核心引擎 ---------- */
+function gatherParams(){
+  const h = hospInfo();
+  return {
+    treat: $("f_treat").value,
+    ins: $("f_ins").value,
+    hosp: h.name,
+    hospCity: $("f_city").value,
+    hospArea: h.area,
+    hospAbc: h.abc,
+    level: parseInt($("f_level").value),
+    consc: $("f_consc").value,
+    visit: $("f_visit").value,
+    icu: Math.max(0, parseInt($("f_icu").value)||0),
+    course: Math.max(1, parseInt($("f_course").value)||1),
+    maint: Math.max(0, parseInt($("f_maint").value)||0),
+    comp: [...state.comp],
+    dcPending: state.dc.has("pending")
+  };
+}
+function missingOf(p){
+  const missing = [];
+  if(!p.treat) missing.push("治疗方案（①粘贴病情或②选场景）");
+  if(!p.ins) missing.push("参保类型");
+  return missing;
+}
+/* 对同一组输入参数计算结果（与 DOM 解耦，供单次测算与多情形对比共用） */
+function computeCase(p){
+  const {treat, ins, level, consc, visit, icu, comp, dcPending, hosp, hospCity} = p;
+  const sc = SCENES[treat];
+  const S = sc.seg.map(x=>[...x]);
+
+  // ICU 天数调整：典型 7 天为基准，按比例缩放 ICU 段
+  const icuRatio = sc.icuW > 0.05 ? Math.max(0.15, icu / 7) : 1;
+  S[1] = S[1].map(v=>v*icuRatio);
+
+  // 并发症：整体上移。血液病方案不使用「并发症加乘」（已有独立支持治疗段，避免重复放大）
+  const compMul = (!sc.perCourse && comp.length) ? 1.3 + 0.15*(comp.length-1) : 1;
+  if(compMul>1){ for(let i=0;i<4;i++){ S[i]=S[i].map(v=>v*compMul); } }
+  // 昏迷：ICU 段再上移（血液病不做此项叠加）
+  if(consc==="coma" && !sc.perCourse){ S[1]=S[1].map(v=>v*1.5); }
+
+  // 血液病（方案 B）：单次/单疗程费用 × 疗程次数
+  const course = sc.perCourse ? Math.max(1, p.course || 1) : 1;
+  if(course > 1){ for(let i=0;i<4;i++){ S[i]=S[i].map(v=>v*course); } }
+
+  // 移植后维持（抗排异 + 复查）：按月 × 月数，单独记账（不并入「康复」段，避免误读）
+  let maintLo = 0, maintHi = 0, maintDir = 0;
+  if(sc.maintCost && p.maint > 0){
+    maintLo = sc.maintCost[0] * p.maint;
+    maintHi = sc.maintCost[1] * p.maint;
+    maintDir = sc.maintDir || 0.85;
+  }
+
+  const segTotal = S.reduce((a,x)=>a+x[0]+x[1],0)/2;    // 治疗段典型值
+  const segLo = S.reduce((a,x)=>a+x[0],0);
+  const segHi = S.reduce((a,x)=>a+x[1],0);
+
+  // 去骨瓣二期修补（钛网）：仅 ich_cran_dc 支持，勾选后计入总额，单列记账
+  let dcLo = 0, dcHi = 0, dcDir = 0;
+  const dcOn = !!(sc.dcCost && dcPending);
+  if(dcOn){
+    dcLo = sc.dcCost[0];
+    dcHi = sc.dcCost[1];
+    dcDir = sc.dcDir || 0.75;
+  }
+
+  const total = segTotal + (maintLo + maintHi)/2 + (dcLo + dcHi)/2;
+  const totalLo = segLo + maintLo + dcLo;
+  const totalHi = segHi + maintHi + dcHi;
+
+  // 医保计算（单位统一为万元；起付线原始值为元，此处换算）
+  const R = RULES[ins];
+  const isExt = visit === "ext_ref" || visit === "ext_noref";
+  // 起付线：江门市外统一 1500；东莞市外为独立三档（银卡/居民 1000/1500/2000、金卡减半 500/750/1000，2026-11-11 核验）
+  const extD = R.extDeduct;
+  const deductYuan = isExt ? (typeof extD === "object" ? extD[level] : extD) : R.deduct[level];
+  const deductW = deductYuan / 10000;
+  // 目录内费用：主费用按方案 dir；移植后维持按 maintDir；钛网二期修补按 dcDir 各自折算
+  const maintTyp = (maintLo + maintHi) / 2;
+  const dcTyp = (dcLo + dcHi) / 2;
+  const adjTyp = maintTyp + dcTyp;                      // 需单独折算口径的部分
+  const inCat = adjTyp > 0
+    ? (total - adjTyp) * sc.dir + maintTyp * maintDir + dcTyp * dcDir
+    : total * sc.dir;
+  const catSelf = inCat * CAT_SHARE * ETHNIC_SELF;      // 乙类先行自付
+  const base    = Math.max(0, inCat - catSelf - deductW); // 纳入基数
+  // 基本医保：江门按医院等级固定比例（市外按转诊口径下调）；东莞按"医院等级×费用段"双维分段
+  let basic, rate, rateLabel;
+  if(R.none){
+    rate = 0; basic = 0; rateLabel = "无医保 · 全额自费";
+  }else if(R.tiersByLevel){
+    basic = tierCalc(base, 0, R.tiersByLevel[level]);
+    rate = base > 0 ? basic / base : 0;                 // 平均比例（仅展示用）
+    rateLabel = isExt ? "市外·费用分段(比例未核实)" : "费用分段·按等级";
+  }else{
+    rate = !isExt ? R.rate[level] : R.rateExt[visit==="ext_ref" ? "ref" : "noref"][level];
+    basic = base * rate;
+    rateLabel = (isExt ? (visit==="ext_ref" ? "市外已转诊 " : "市外未转诊 ") : "") + Math.round(rate*100) + "%";
+  }
+  // 目录内自付 = 目录内 − 基本报销（起付线与乙类先自付本来就不报销，已天然包含，不重复加回）
+  // 【2026-11-11 回测修正】旧口径 +deductW +catSelf 会把这两项重复计入大病基数，系统性多报大病
+  const inCatSelf = Math.max(0, inCat - basic);
+  // 大病基数 = 目录内自付，tierCalc 的 floor 已扣除大病起付线（江门"不含起付标准以内费用"同义）；市外比例按转诊口径切换
+  const bigBase  = Math.max(0, inCatSelf);
+  const bigTiers = isExt && R.bigExt ? R.bigExt[visit==="ext_ref" ? "ref" : "noref"] : R.big.tiers;
+  const big  = tierCalc(bigBase, R.big.floor, bigTiers);
+  // 大额补助（东莞金卡专属）：目录内自付超大额起付标准（约 526 元）部分 90%/75%，与大病保险分层叠加
+  const bigAid = R.aid ? tierCalc(bigBase, R.aid.floor, R.aid.tiers) : 0;
+  const bigDesc = (()=>{  // 大病口径描述（按参保地与就医情形动态生成）
+    if(R.none) return "无医保，不涉及大病报销";
+    const parts = [];
+    let prev = R.big.floor;
+    bigTiers.forEach(([cap, rr], i)=>{
+      parts.push("超过" + prev + "万的部分×" + Math.round(rr*100) + "%");
+      if(cap !== Infinity) prev = cap;
+    });
+    return (isExt ? "市外口径：" : "") + "目录内自付" + parts.join("，");
+  })();
+  const reimb = basic + big + bigAid;
+  const self  = total - reimb;
+  const resid = Math.abs(total - reimb - self);
+
+  // 黄灯判定
+  const yellows = [];
+  if(R.none){
+    yellows.push("无医保：全部费用由个人承担，本页只估算总费用，不涉及报销测算");
+  }else{
+    // 就诊医院与参保地不一致 → 提醒确认就医情形（异地就医）
+    const insCity = ins.startsWith("dg") ? "dg" : "jm";
+    if(hospCity && hospCity !== insCity && visit === "local"){
+      yellows.push("就诊地在" + (CITY_NAME[hospCity]||"外地") + "、参保地在" + CITY_NAME[insCity] + "，属异地就医，请把「就医情形」改为市外（转诊/未转诊）");
+    }
+    if(isExt && !R.rateExt) yellows.push("东莞市外就医支付比例是否下调未核实（本版按市内分段比例计算，起付线已按市外口径调整）");
+  }
+  if(!hosp) yellows.push("未指定具体就诊医院（医院等级为手动所选，起付线请与结算单核对）");
+  if(consc==="typical") yellows.push("意识状态未确认（按典型值）");
+  if(!comp.length && sc.dz === "ich") yellows.push("并发症未确认（按无并发症）");
+  if(sc.drug) yellows.push("靶向/免疫药费目录属性未核对（需按药名查目录库）");
+  if(consc==="coma" && icu<7) yellows.push("昏迷但 ICU 天数偏少，请核对是否已转普通病房");
+  if(dcOn) yellows.push("已含去骨瓣二期修补钛网 " + sc.dcCost[0] + "–" + sc.dcCost[1] + " 万（按目录内 " + Math.round(dcDir*100) + "% 折算）；该手术通常数月后另行住院结算，请向家属说明是两次住院");
+  // 血液病专项提醒
+  if(sc.perCourse && course > 1) yellows.push("本次按 " + course + " 个疗程累加，请核对疗程数与实际方案是否一致");
+  if(sc.perCourse) yellows.push("血液病费用为公开口径估算，未经本地结算单校准，请与医院收费单核对后使用");
+  if(sc.maintCost && p.maint > 0) yellows.push("已含移植后 " + p.maint + " 个月抗排异与复查费用；大病保险按年度累计，跨年需分年算");
+  if(sc.maintCost && !(p.maint > 0)) yellows.push("未填移植后维持月数（抗排异与复查费用未计入，实际每年仍有数万元）");
+  const st = yellows.length ? "y" : "g";
+
+  return {
+    st, yellows, missing:[], sc, S, total, totalLo, totalHi,
+    inCat, catSelf, deductW, deductYuan, rate, rateLabel, bigDesc, basic, inCatSelf, big, bigAid, reimb, self, resid,
+    course, maintLo, maintHi, maint: p.maint || 0, segTotal, segLo, segHi,
+    dcLo, dcHi, dcOn,
+    treat, ins, hosp, hospCity, level, consc, visit, icu, comp, dcPending
+  };
+}
+function calc(){
+  const p = gatherParams();
+  // 同步"当前方案"标签与场景按钮高亮（文本解析、场景按钮、参数三条路径统一）
+  $("curTreat").textContent = p.treat
+    ? (DISEASES[SCENES[p.treat].dz].name + " · " + SCENES[p.treat].opName + " · " + SCENES[p.treat].vName)
+    : "未选择";
+  const missing = missingOf(p);
+  if(missing.length){ renderRed(missing); return; }
+  const r = computeCase(p);
+  render(r);
+  if($("cmpBox").style.display === "block") compareVisits();   // 对比面板已展开时同步刷新
+}
+
+/* ---------- 就医情形对比（市内 / 市外转诊 / 市外未转诊）---------- */
+function compareVisits(){
+  const p = gatherParams();
+  const missing = missingOf(p);
+  if(missing.length){ toast("请先完成带 * 的必填项再对比"); return; }
+  const names = {local:"市内定点就医", ext_ref:"市外 · 已转诊/备案", ext_noref:"市外 · 未经转诊"};
+  const order = ["local","ext_ref","ext_noref"];
+  const rs = order.map(v=>({v, name:names[v], r:computeCase({...p, visit:v})}));
+  const selfs = rs.map(x=>x.r.self);
+  const minSelf = Math.min(...selfs), maxSelf = Math.max(...selfs);
+  const box = $("cmpBox");
+  box.style.display = "block";
+  box.innerHTML =
+    '<div style="font-size:12.5px;font-weight:600;color:var(--navy)">同一病情 · 三种就医情形对比（就医选择直接影响家里要出的钱）</div>'
+    + '<div class="cmp-grid">'
+    + rs.map(x=>{
+        const r = x.r;
+        const best = r.self === minSelf;
+        const worst = r.self === maxSelf;
+        const diff = (worst ? (r.self - minSelf) : 0);
+        return `<div class="cmp-card${best?" best":""}">`
+          + `<div class="cmp-t">${x.name}${best?"　👍 少花钱":""}</div>`
+          + `<div class="cmp-v">自费 ${fmt(r.self)} 万</div>`
+          + `<div class="cmp-s">报销 ${fmt(r.reimb)} 万 · 占比 ${Math.round(r.self/r.total*100)}% · 起付 ${r.deductYuan} 元</div>`
+          + (worst && maxSelf-minSelf >= 0.05 ? `<div class="cmp-s" style="color:var(--coral)">比最优情形多花 ${diff.toFixed(1)} 万</div>` : (worst ? `<div class="cmp-s">与最优情形差异极小</div>` : ""))
+          + `</div>`;
+      }).join("")
+    + '</div>'
+    + (maxSelf-minSelf >= 0.05
+        ? `<div class="cmp-note">💡 同样这 ${fmt(rs[0].r.total)} 万的病：<b>最优就医情形比最差少自费 ${(maxSelf-minSelf).toFixed(1)} 万</b>。</div>`
+        : `<div class="cmp-note">当前参保类型下三种就医情形自费差异极小，就医地选择影响不大。</div>`)
+    + '<div class="cmp-warn">⚠ 跨市就医请提前办理<b>转诊手续或异地就医备案</b>（"粤医保"小程序可办），否则可能影响直接结算。</div>'
+    + (p.ins.startsWith("dg") ? '<div class="cmp-warn">⚠ 东莞市外支付比例是否下调未核实，市外两卡按市内比例计算（仅起付线不同）。</div>' : "")
+    + '<div class="cmp-warn">对比为同一参数下的口径测算，实际以结算单为准。</div>';
+}
+
+/* ---------- 渲染 ---------- */
+function renderRed(missing){
+  window._lastR = null;                 // 参数不全时清空，避免海报继续用上一次的结果
+  $("statusBar").className = "status st-r";
+  $("statusText").textContent = "🔴 不能出图 —— 还差：" + missing.join("、");
+  ["oTotal","oReimb","oSelf"].forEach(id=>$(id).textContent="—");
+  $("oSelfSub").textContent="—";
+  $("oSelfSum").style.display="none"; window._drugSum = null;
+  $("calcBody").innerHTML=""; $("warnBox").style.display="none";
+  $("drugSteps").style.display="none";
+  $("jsonOut").textContent = JSON.stringify({status:"BLOCKED", missing}, null, 2);
+  if(typeof drawPoster === "function") drawPoster();
+}
+function render(r){
+  window._lastR = r;   // 供云端上报使用
+  const bar = $("statusBar");
+  bar.className = "status " + (r.st==="g"?"st-g":"st-y");
+  bar.querySelector(".dot").style.background = r.st==="g" ? "var(--green)":"var(--amber)";
+  $("statusText").textContent = r.st==="g"
+    ? "🟢 参数齐备 —— 可出标准区间估算卡"
+    : "🟡 降级出宽区间 —— " + r.yellows.join("；");
+
+  $("oTotal").textContent = fmt(r.totalLo)+"–"+fmt(r.totalHi)+" 万";
+  $("oTotalSub").textContent = "典型档 " + fmt(r.total) + " 万 · " + r.sc.vName;
+  $("oReimb").textContent = "≈ " + fmt(r.reimb) + " 万";
+  $("oSelf").textContent = "≈ " + fmt(r.self) + " 万";
+  const pct = (r.self/r.total*100);
+  $("oSelfSub").textContent = "自费占比 ≈ " + pct.toFixed(0) + "%";
+
+  // 构成条：报销 / 目录内自付（净额，扣除大病抵扣）/ 目录外自费，三段必须闭合
+  const outCat = r.total - r.inCat;
+  const inSelf = Math.max(0, r.self - outCat);
+  const rb = Math.max(0.005, r.reimb/r.total), is = Math.max(0.005, inSelf/r.total), os = Math.max(0.005, outCat/r.total);
+  $("oBar").innerHTML =
+    `<div class="seg-a" style="flex:${rb}">${rb>0.12?"医保 ":""}${Math.round(rb*100)}%</div>`+
+    `<div class="seg-b" style="flex:${is}" title="目录内个人自付">${is>0.035?Math.round(is*100)+"%":""}</div>`+
+    `<div class="seg-c" style="flex:${os}">${os>0.12?"自费 ":""}${Math.round(os*100)}%</div>`;
+
+  // 明细
+  const isBlood = !!(r.sc.perCourse || r.sc.maintCost);
+  const totalRow = ["① 总费用（" + (isBlood ? (r.sc.perCourse ? "单疗程 × " + r.course + " 疗程" : "移植住院全包") : "四段构成相加") + "，典型档）", fmt2(r.total) + " 万"];
+  const rows = (RULES[r.ins] && RULES[r.ins].none) ? [
+    totalRow,
+    ["② 医保报销 = 0（无医保：不设起付线，不涉及基本医保 / 大病 / 大额补助）", fmt2(r.reimb) + " 万"],
+    ["③ 自费 = ① − ②（全部费用由个人承担）", fmt2(r.self) + " 万"],
+    ["④ 目录内外之分不适用于本情形，四段构成仅供费用结构参考", "—"],
+  ] : [
+    totalRow,
+    ["② 目录内费用 = ① × " + Math.round(r.sc.dir*100) + "%"
+      + (r.maintLo ? "（维持段按 " + Math.round(r.sc.maintDir*100) + "% 单独折算）" : "")
+      + (r.dcOn ? "（钛网按 " + Math.round(r.sc.dcDir*100) + "% 单独折算）" : ""), fmt2(r.inCat) + " 万"],
+    ["③ 乙类先行自付 = ② × 30% × 1%", fmt2(r.catSelf) + " 万"],
+    ["④ 起付线（" + ({"1":"一级以下","2":"二级","3":"三级"}[r.level]) + "医院）", r.deductYuan + " 元"],
+    ["⑤ 纳入基数 = ② − ③ − ④", fmt2(r.inCat - r.catSelf - r.deductW) + " 万"],
+    ["⑥ 基本医保 = ⑤ × " + r.rateLabel, fmt2(r.basic) + " 万"],
+    ["⑦ 目录内自付 = ② − ⑥（起付线与乙类自付天然已含）", fmt2(r.inCatSelf) + " 万"],
+    ["⑧ 大病二次报销（" + r.bigDesc + "）", fmt2(r.big) + " 万"],
+    ["⑨ 总报销 = ⑥ + ⑧", fmt2(r.reimb) + " 万"],
+    ["⑩ 自费 = ① − ⑨", fmt2(r.self) + " 万"],
+  ];
+  if(isBlood){
+    const lbl = r.maintLo
+      ? "↳ 拆解：治疗段 ＋ 移植后维持 " + r.maint + " 个月 × " + r.sc.maintCost[0] + "–" + r.sc.maintCost[1] + " 万/月"
+      : "↳ 拆解：治疗段（本方案无移植后维持费）";
+    const val = r.maintLo
+      ? fmt2(r.segTotal) + " 万 ＋ " + fmt2(r.maintLo) + "–" + fmt2(r.maintHi) + " 万"
+      : fmt2(r.segTotal) + " 万";
+    rows.splice(1, 0, [lbl, val]);
+  }
+  if(r.dcOn){
+    rows.splice(1, 0, ["↳ 含去骨瓣二期修补（钛网）· 通常另行住院结算", "+ " + fmt2(r.dcLo) + "–" + fmt2(r.dcHi) + " 万"]);
+  }
+  $("calcBody").innerHTML = rows.map(x=>`<div class="srow"><span class="k">${x[0]}</span><span class="v">${x[1]}</span></div>`).join("")
+    + `<div class="srow ok"><span class="k">三角校验 ① − ⑨ − ⑩</span><span class="v">= ${r.resid.toFixed(4)} 万 ✓</span></div>`
+    + `<div class="srow sum"><span class="k">四段构成（低–高${r.maintLo ? "，不含移植后维持" : ""}${r.dcOn ? "，不含钛网" : ""}）</span><span class="v">${r.S.map((s,i)=>SEG_SHORT[i]+" "+fmt(s[0])+"–"+fmt(s[1])).join(" · ")}${r.maintLo ? " · 移植后维持 " + fmt(r.maintLo) + "–" + fmt(r.maintHi) : ""}${r.dcOn ? " · 钛网 " + fmt(r.dcLo) + "–" + fmt(r.dcHi) : ""}</span></div>`;
+
+  // 黄灯提示
+  const wb = $("warnBox");
+  if(r.yellows.length){
+    wb.style.display="block";
+    wb.innerHTML = "<b>降级原因<span class=\"note-help\">（补齐后区间可收窄）</span>：</b><br>" + r.yellows.map(x=>"· "+x).join("<br>");
+  } else {
+    wb.style.display="none";
+  }
+
+  // 常用药品与耗材（按当前方案联动）
+  renderDrugs(r.treat);
+  updateSelfSum(r);
+
+  // 海报预览跟随测算结果刷新
+  if(typeof drawPoster === "function") drawPoster();
+
+  // JSON
+  $("jsonOut").textContent =     JSON.stringify({
+      status: r.st==="g"?"GREEN":"YELLOW",
+      input:{treatment:r.treat, consciousness:r.consc, icu_days:r.icu, complications:r.comp, hospital_city:CITY_NAME[r.hospCity]||r.hospCity||"", hospital:r.hosp||"", hospital_level:r.level, insurance:RULES[r.ins].label, visit:r.visit, dc_pending:r.dcPending||false},
+      scene:{name:r.sc.name, dir_rate:r.sc.dir, total_wan:[+r.totalLo.toFixed(1), +r.totalHi.toFixed(1)]},
+      result:{in_cat:+r.inCat.toFixed(2), deduct_wan:+r.deductW.toFixed(2), deduct_yuan:r.deductYuan, ethnic_self:+r.catSelf.toFixed(3), rate:r.rate, basic:+r.basic.toFixed(2), big:+r.big.toFixed(2), reimb:+r.reimb.toFixed(2), self:+r.self.toFixed(2), self_pct:+(r.self/r.total*100).toFixed(1)},
+      audit:{triangle_resid:+r.resid.toFixed(4), rules_version:"GD-JM-DG-2026-11-09", engine:"demo-v0.23"}
+    }, null, 2);
+}
+
+/* ---------- 顶部「自费合计」横幅：住院自费 + 药品耗材自费/自购，一眼可见 ---------- */
+function updateSelfSum(r){
+  const el = $("oSelfSum");
+  if(!r || r.self == null){ el.style.display = "none"; return; }
+  el.style.display = "flex";
+  const ds = window._drugSum;
+  if(!ds){
+    $("oSelfSumVal").textContent = "≈ " + fmt(r.self) + " 万";
+    $("oSelfSumSub").textContent = "该方案暂无药品耗材自费清单，以上为住院预估自费（典型档）";
+    return;
+  }
+  const months = Math.max(1, r.course || 1);   // 血液病按疗程数计常规用药月数，其余按 1 个月
+  const money = n => n.toLocaleString("zh-CN");
+  const addLo = ds.o[0] + ds.m[0] * months;
+  const addHi = ds.o[1] + ds.m[1] * months;
+  const sumLo = (r.self * 10000 + addLo) / 10000;
+  const sumHi = (r.self * 10000 + addHi) / 10000;
+  $("oSelfSumVal").textContent = "≈ " + fmt2(sumLo) + " – " + fmt2(sumHi) + " 万";
+  let sub = "含住院预估自费 ≈ " + fmt(r.self) + " 万（典型档）"
+    + "＋ 药品耗材自费/自购：常规 " + money(ds.m[0]) + "–" + money(ds.m[1]) + " 元/月 × " + months + " 月"
+    + (ds.o[1] ? "，一次性 " + money(ds.o[0]) + "–" + money(ds.o[1]) + " 元" : "");
+  if(ds.big) sub += "；⚠️ 靶向/免疫等大额项未计入，请拿到药名后单独询价";
+  $("oSelfSumSub").textContent = sub;
+}
+
+/* ---------- 常用药品与耗材渲染（按当前方案自动切换表）---------- */
+function renderDrugs(treat){
+  const box = $("drugBody"), wrap = $("drugSteps");
+  if(!treat || !SCENES[treat]){ wrap.style.display = "none"; window._drugSum = null; return; }
+  const s = SCENES[treat];
+  const d = DRUGS[s.profile];
+  if(!d){ wrap.style.display = "none"; window._drugSum = null; return; }
+  /* 方案级排除：不开颅不列植入耗材、不溶栓不列溶栓药、非移植不列移植相关 */
+  const skip = s.skipDrug || [];
+  const groups = d.groups.filter(g=>{
+    const bySkip = skip.some(x=>g.t.includes(x));
+    return !bySkip && shouldShowGroup(s, g);
+  });
+  let nAll = 0, nSelf = 0;
+  groups.forEach(g=>g.items.forEach(it=>{ nAll++; if(it[0]==="自费" || it[0]==="自购") nSelf++; }));
+  $("drugHead").innerHTML = "💊 常用药品与耗材 · " + DISEASES[s.dz].name
+    + ' <span style="font-weight:400;color:var(--muted-2)">（<span class="note-help">' + d.hint + "；</span>"
+    + nAll + " 项，其中 "
+    + '<b style="color:var(--coral)">' + nSelf + " 项自费/自购</b>）</span>";
+  box.innerHTML = groups.map(g=>{
+    const rows = g.items.map(([cls, nm, qt, nt])=>{
+      const [k, lab] = DRUG_TAG[cls];
+      return '<div class="drug-row"><span class="dtag ' + k + '">' + lab + '</span>'
+        + '<span class="nm">' + nm + '</span>'
+        + (qt ? '<span class="qt">· ' + qt + '</span>' : "")
+        + (nt ? '<span class="nt">— ' + nt + '</span>' : "") + '</div>';
+    }).join("");
+    return '<div class="drug-grp' + (g.buy ? " buy-grp" : "") + '">' + g.t + '</div>' + rows;
+  }).join("")
+  + drugSubtotalHTML(d, groups)
+  + '<div class="drug-callout"><b>⚠️ 结算单之外的隐性开销</b>：上表「自费 / 自购」两类是医保不报、或需家属自行购买的部分——出院结算单上不体现，但钱要先垫。向家属讲家庭负担时<b>务必单独说明这一块</b>，否则容易出现"说好的报销比例怎么对不上"的争议。</div>'
+  + '<div class="drug-foot">' + d.foot + '</div>';
+  wrap.style.display = "block";
+}
+/* 分组级显示规则：移植相关组仅移植方案、化疗主药组仅化疗方案（按需扩展） */
+function shouldShowGroup(sc, g){
+  const isTrans = sc.op === "trans";
+  if(g.t.includes("移植相关") && !isTrans) return false;
+  if(g.t.includes("化疗主药") && isTrans) return false;
+  return true;
+}
+/* 自费/自购小计：常规按月 + 一次性；差异过大的大额项（靶向/免疫等）单列不计入 */
+function drugSubtotalHTML(d, groups){
+  const gs = groups || d.groups;
+  const acc = {m:[0,0], o:[0,0], bm:[0,0], bo:[0,0]};
+  gs.forEach(g=>g.items.forEach(it=>{
+    const c = it[4]; if(!c) return;
+    const [lo, hi, unit, isBig] = c;
+    const t = isBig ? (unit==="month" ? acc.bm : acc.bo) : (unit==="month" ? acc.m : acc.o);
+    t[0]+=lo; t[1]+=hi;
+  }));
+  /* 供顶部「自费合计」横幅使用（含常规/一次性/大额分组） */
+  window._drugSum = {m:acc.m.slice(), o:acc.o.slice(), bm:acc.bm.slice(), bo:acc.bo.slice(),
+                     big:!!(acc.bm[1] || acc.bo[1])};
+  const money = n => n.toLocaleString("zh-CN");
+  let html = '<div class="drug-sum">💰 <b>自费/自购小计（按典型用量估算）</b>：常规部分约 <b>'
+    + money(acc.m[0]) + " – " + money(acc.m[1]) + '</b> 元/月';
+  if(acc.o[1]) html += '；一次性/按疗程（辅具、白蛋白等）另计约 <b>' + money(acc.o[0]) + " – " + money(acc.o[1]) + '</b> 元';
+  if(acc.bm[1] || acc.bo[1]){
+    html += '<br>⚠️ <b>大额项未计入小计</b>（' + (d.hint && d.hint.includes("白血病") ? "靶向药 / 配型 / 丙球 等" : "靶向药 / 免疫治疗 / 基因检测 / PET-CT") + '，方案间差异过大）：';
+    if(acc.bm[1]) html += '按月用药合计可达 <b>' + money(acc.bm[0]) + " – " + money(acc.bm[1]) + '</b> 元/月';
+    if(acc.bm[1] && acc.bo[1]) html += '，';
+    if(acc.bo[1]) html += '一次性检查/用药另约 <b>' + money(acc.bo[0]) + " – " + money(acc.bo[1]) + '</b> 元';
+    html += '，请拿到具体药名/方案后单独询价';
+  }
+  html += '<span class="fine"><br>小计仅供家属准备资金参考，不进入上方报销测算，实际以医嘱与医院收费为准。</span></div>';
+  return html;
+}
+
+/* ---------- 交互杂项 ---------- */
+function refreshChips(){
+  document.querySelectorAll("#f_comp .chip").forEach(c=>c.classList.toggle("on", state.comp.has(c.dataset.v)));
+  document.querySelectorAll("#f_dc .chip").forEach(c=>c.classList.toggle("on", state.dc.has(c.dataset.v)));
+}
+let toastTimer=null;
+function toast(msg){
+  const t=$("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2200);
+}
+$("f_comp").addEventListener("click",e=>{
+  if(!e.target.classList.contains("chip"))return;
+  const v=e.target.dataset.v; state.comp.has(v)?state.comp.delete(v):state.comp.add(v);
+  refreshChips(); calc();
+});
+$("f_dc").addEventListener("click",e=>{
+  if(!e.target.classList.contains("chip"))return;
+  const v=e.target.dataset.v; state.dc.has(v)?state.dc.delete(v):state.dc.add(v);
+  refreshChips(); calc();
+});
+["f_treat","f_consc","f_icu","f_level","f_ins","f_visit","f_course","f_maint"].forEach(id=>{
+  $(id).addEventListener("input",calc); $(id).addEventListener("change",calc);
+});
+/* 就诊城市：重建该城市医院列表 + 自动对齐就医情形 */
+$("f_city").addEventListener("change",()=>{
+  $("f_hosp").value=""; $("f_level").disabled=false;
+  const n = buildHospitals();
+  syncVisitAuto();
+  const c = CITY_NAME[$("f_city").value] || "该城市";
+  $("hospHint").textContent = n
+    ? "已切换到" + c + "（内置 " + n + " 家），选定医院后自动带出等级"
+    : c + "暂无内置医院库，请手动选择医院等级（等级决定起付线）";
+  calc();
+});
+/* 医院选择：自动带出等级并锁定；切"其他医院"或清空则恢复手动等级 */
+$("f_hosp").addEventListener("change",()=>{
+  const lv=$("f_level"), hint=$("hospHint"), v=$("f_hosp").value;
+  if(!v || v==="other"){
+    lv.disabled=false;
+    hint.textContent = v==="other" ? "已切换为其他医院：请手动选择医院等级（等级决定起付线）" : "先选城市再选医院，等级自动带出；等级决定起付线，请与结算单核对";
+  }else{
+    const [name, l] = v.split("|");
+    lv.value = l; lv.disabled = true;
+    const info = hospInfo();
+    hint.textContent = "该院等级：" + LV_NAME[l] + (info.area ? "（" + info.area + "）" : "") + "｜不符可切“其他医院”手选";
+  }
+  calc();
+});
+/* 参保地变化：就诊城市若原本"跟着参保地走"，则自动跟随；用户主动选过外地则保留并走跨市口径 */
+let lastInsCity = "dg";
+function onInsChanged(){
+  const newCity = $("f_ins").value.startsWith("dg") ? "dg" : "jm";
+  if($("f_city").value === lastInsCity && newCity !== lastInsCity){
+    $("f_city").value = newCity;
+    $("f_hosp").value = ""; $("f_level").disabled = false;
+    const n = buildHospitals();
+    $("hospHint").textContent = "已随参保地把就诊城市切到" + CITY_NAME[newCity] + "（内置 " + n + " 家）；在外地就医请自行改城市";
+  }
+  lastInsCity = newCity;
+  syncVisitAuto();
+  calc();
+}
+$("f_ins").addEventListener("change", onInsChanged);
+/* 就诊地 vs 参保地：跨市自动切"市外·已转诊"，同城自动切回"市内"（未转诊需顾问自行改） */
+function syncVisitAuto(){
+  const insCity = $("f_ins").value.startsWith("dg") ? "dg" : "jm";
+  const city = $("f_city").value, v = $("f_visit").value;
+  if(city === insCity && v !== "local"){
+    $("f_visit").value = "local";
+    toast("就诊地与参保地一致，已切回「市内定点」");
+  }else if(city !== insCity && v === "local"){
+    $("f_visit").value = "ext_ref";
+    toast("就诊地（" + (CITY_NAME[city]||"外地") + "）≠ 参保地（" + CITY_NAME[insCity] + "），已按「市外·已转诊」计算；未办转诊请改选");
+  }
+}
+$("btnParse").onclick = parseText;
+$("btnCompare").onclick = compareVisits;
+$("btnPlanCmp").onclick = comparePlans;
+/* 技术区块默认隐藏，按需展开 */
+$("btnJson").onclick = ()=>{
+  const el=$("jsonOut"), show = el.style.display === "none";
+  el.style.display = show ? "block" : "none";
+  $("btnJson").textContent = show ? "收起原始 JSON" : "查看原始 JSON";
+};
+$("btnUpToggle").onclick = ()=>{
+  const el=$("upPanel"), show = el.style.display === "none";
+  el.style.display = show ? "block" : "none";
+  $("btnUpToggle").textContent = show ? "🛠 收起测试记录面板" : "🛠 内部：提交测试记录";
+};
+$("btnReset").onclick = ()=>{
+  $("f_text").value=""; $("f_treat").value=""; $("f_consc").value="typical";
+  $("f_icu").value=7; $("f_level").value="3"; $("f_ins").value="dg_silver"; $("f_visit").value="local";
+  $("f_city").value="dg"; buildHospitals(); lastInsCity="dg";
+  $("f_hosp").value=""; $("f_level").disabled=false;
+  $("hospHint").textContent="先选城市再选医院，等级自动带出；等级决定起付线，请与结算单核对";
+  state.comp.clear(); state.dc.clear(); state.dz=null; state.op=null; state.vid=null; state.city="dg"; state.card=null; state.resType=null; state.retired=false;
+  $("f_course").value=1; $("f_maint").value=0; $("courseRow").style.display="none"; $("courseTip").style.display="none";
+  $("dcRow").style.display="none";
+  renderSceneChips();
+  $("planCmpBox").style.display="none";
+  refreshChips(); calc(); toast("已重置");
+};
+$("stepsToggle").onclick = ()=>{
+  const s=$("calcSteps"); s.classList.toggle("open");
+  $("stepsToggle").textContent = s.classList.contains("open") ? "收起 ▴" : "展开 ▾";
+};
+$("drugSteps").querySelector(".hd").onclick = ()=>{
+  const s=$("drugSteps"); s.classList.toggle("open");
+  $("drugToggle").textContent = s.classList.contains("open") ? "收起 ▴" : "展开 ▾";
+};
+
+/* ================= 云端测试记录上报 ================= */
+const TCB_ENV = "eric-lee-d1gmu53x0588d8bae";
+const TCB_COLLECTION = "fee_test_logs";
+let tcbReadyPromise = null;
+function tcbInit(){
+  if(tcbReadyPromise) return tcbReadyPromise;
+  tcbReadyPromise = (async()=>{
+    if(typeof cloudbase === "undefined") throw new Error("云端 SDK 加载失败（网络问题），请刷新页面重试");
+    const app = cloudbase.init({ env: TCB_ENV });
+    const auth = app.auth();
+    try{
+      const st = await auth.getLoginState();
+      if(st) return app;                      // 已有匿名登录态，直接复用
+    }catch(e){ /* 忽略状态检查错误，走登录 */ }
+    await auth.signInAnonymously();
+    return app;
+  })();
+  return tcbReadyPromise;
+}
+$("btnSubmit").onclick = async ()=>{
+  const r = window._lastR;
+  if(!r || !r.sc){ toast("请先完成一次测算再提交"); return; }
+  const btn=$("btnSubmit"), note=$("upStatus");
+  btn.disabled=true; btn.textContent="提交中…"; note.style.display="block";
+  note.style.color="var(--muted-2)"; note.textContent="正在连接云端…";
+  try{
+    const app = await tcbInit();
+    const doc = {
+      advisor: ($("f_advisor").value||"").trim(),
+      feedback: ($("f_feedback").value||"").trim(),
+      ua: navigator.userAgent,
+      engine: "demo-v0.23", rules_version: "GD-JM-DG-2026-11-09",
+      created_at: Date.now(),
+      record: {
+        status: r.st==="g"?"GREEN":"YELLOW",
+        scene: r.sc.name,
+        input:{treatment:r.treat, consciousness:r.consc, icu_days:r.icu, complications:[...r.comp], hospital_city:CITY_NAME[r.hospCity]||r.hospCity||"", hospital:r.hosp||"", hospital_area:r.hospArea||"", hospital_abc:r.hospAbc||"", hospital_level:r.level, insurance:RULES[r.ins].label, visit:r.visit, dc_pending:r.dcPending||false},
+        result:{total_wan:[+r.totalLo.toFixed(1), +r.total.toFixed(1), +r.totalHi.toFixed(1)], reimb:+r.reimb.toFixed(2), self:+r.self.toFixed(2), self_pct:+(r.self/r.total*100).toFixed(1)},
+        yellows: r.yellows
+      }
+    };
+    const res = await app.database().collection(TCB_COLLECTION).add(doc);
+    if(!res || !res.id) throw new Error("云端未返回记录 ID");
+    btn.textContent="✓ 已提交";
+    note.style.color="var(--green)"; note.textContent="已上传（记录号 " + res.id + "），感谢反馈！";
+    $("f_feedback").value="";
+    toast("测试记录已上传 ✓");
+  }catch(err){
+    console.error(err);
+    btn.disabled=false; btn.textContent="提交失败，点击重试";
+    note.style.color="var(--red)"; note.textContent="上传失败：" + (err.message||err);
+  }
+};
+
+/* ================= 朋友圈海报生成（Canvas 纯代码绘制）=================
+   W=1080 H=1350（微信朋友圈 4:5）；5 套版式共用绘制工具，靠布局函数切换 */
+const POSTER_W = 1080, POSTER_H = 1350;
+const PS_KEY = "fee_poster_profile_v1";
+let psQR = null;              // 二维码 Image 对象
+let psQRSrc = null;           // 二维码原始 dataURL（保存用，不依赖 Image 异步）
+let psTpl = "kpi";            // 当前模板
+
+/* ---------- 顾问档案（本地保存）---------- */
+function loadProfile(){
+  try{
+    const o = JSON.parse(localStorage.getItem(PS_KEY) || "{}");
+    if(o.advisor) $("p_advisor").value = o.advisor;
+    if(o.phone) $("p_phone").value = o.phone;
+    if(o.pattern && PS_PATTERN[o.pattern]) psPattern = o.pattern;
+    if(o.qr){ psQRSrc = o.qr; return o.qr; }
+  }catch(e){}
+  return null;
+}
+function saveProfile(){
+  try{
+    localStorage.setItem(PS_KEY, JSON.stringify({
+      advisor: $("p_advisor").value.trim(),
+      phone: $("p_phone").value.trim(),
+      pattern: psPattern,
+      qr: psQRSrc
+    }));
+  }catch(e){ /* 隐私模式或超配额时静默失败 */ }
+}
+
+/* ---------- 海报数据 ---------- */
+function posterData(){
+  const r = window._lastR;
+  if(!r || !r.sc) return null;
+  const pct = Math.round(r.self / r.total * 100);
+  return {
+    totalLo: r.totalLo, totalHi: r.totalHi,
+    totalTyp: r.total,
+    reimb: r.reimb, self: r.self,
+    pct,
+    reimbPct: Math.round(r.reimb / r.total * 100),
+    selfPct: pct,
+    dzName: DISEASES[r.sc.dz].name,
+    planName: r.sc.vName,
+    advisor: $("p_advisor").value.trim(),
+    phone: $("p_phone").value.trim(),
+    qr: psQR
+  };
+}
+
+/* ---------- 绘制工具 ---------- */
+function psRound(ctx, x, y, w, h, r, fill){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  if(fill){ ctx.fillStyle = fill; ctx.fill(); }
+}
+function psFont(ctx, size, weight){
+  ctx.font = (weight || "400") + " " + size + 'px -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
+}
+function psText(ctx, txt, x, y, size, color, weight, align){
+  psFont(ctx, size, weight);
+  ctx.fillStyle = color;
+  ctx.textAlign = align || "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(txt, x, y);
+}
+/* 金额：整数万不带小数，区间保留一位 */
+function psWan(v){
+  const s = (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, "");
+  return s + " 万";
+}
+function psShort(v){
+  return (Math.round(v * 10) / 10).toFixed(1).replace(/\.0$/, "");
+}
+/* 二维码：图片已加载则贴图，否则画虚线占位 */
+function psQRBox(ctx, x, y, size, qr){
+  if(qr && qr.complete && qr.naturalWidth){
+    ctx.save();
+    psRound(ctx, x - 6, y - 6, size + 12, size + 12, 12, "#FFFFFF");
+    ctx.restore();
+    ctx.drawImage(qr, x, y, size, size);
+  }else{
+    // 未上传：画纯虚线空位（不写任何提示字，避免导出的海报出现"二维码"之类占位文案）
+    psRound(ctx, x, y, size, size, 10, "#F7F9FC");
+    ctx.setLineDash([7, 6]);
+    ctx.strokeStyle = "#D3DDEA";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x, y, size, size, 10) : ctx.rect(x, y, size, size);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+function psFooterNote(ctx, d, y, color, size){
+  psText(ctx, "测算为家庭资金规划参考，具体以当地医保政策及医院结算为准",
+    POSTER_W/2, y, size || 19, color, "400", "center");
+}
+/* 顾问信息区（多种版式复用）：姓名与电话都没填时整块不画，避免出现"顾问姓名："空标签 */
+function psContact(ctx, d, opt){
+  if(!d.advisor && !d.phone) return;
+  const o = opt || {};
+  const x = o.x || 80, y = o.y || 1180;
+  if(d.advisor){
+    psText(ctx, "顾问姓名", x, y, o.lab || 20, o.labColor || "#8FA3BF", "400");
+    psText(ctx, d.advisor, x, y + 40, o.val || 30, o.valColor || "#16264A", "700");
+  }
+  if(d.phone){
+    const yy = d.advisor ? y + 96 : y;
+    psText(ctx, "联系电话", x, yy, o.lab || 20, o.labColor || "#8FA3BF", "400");
+    psText(ctx, d.phone, x, yy + 40, o.val || 30, o.valColor || "#16264A", "700");
+  }
+}
+
+/* ================= 模板 1 · KPI 卡式（对齐参考图）================= */
+function drawKPI(ctx, d){
+  ctx.fillStyle = "#1B5FD9"; ctx.fillRect(0, 0, POSTER_W, POSTER_H);
+  const g = ctx.createLinearGradient(0, 0, 0, 560);
+  g.addColorStop(0, "#2F7BF6"); g.addColorStop(1, "#1B5FD9");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, POSTER_W, 560);
+  psPaintPatternIn(ctx, psPattern, "#FFFFFF", 0.07, 0, 0, POSTER_W, 560);  // 仅头部区
+
+  psText(ctx, "你的医保到底能报多少？", 76, 148, 82, "#FFFFFF", "700");
+  psText(ctx, "提前算总费用、报销金额、自费预算", 76, 208, 32, "#D6E6FF", "400");
+
+  const cards = [
+    { x:76,  w:288, bg:"#3D86F7", ic:"hospital", lab:"总治疗费预估", val:psShort(d.totalTyp)+"万", sub:psShort(d.totalLo)+"–"+psShort(d.totalHi)+"万", valColor:"#FFFFFF" },
+    { x:388, w:288, bg:"#4A90F8", ic:"shield",   lab:"医保报销比例", val:d.reimbPct+"%",        sub:"约报 "+psShort(d.reimb)+" 万", valColor:"#FFFFFF" },
+    { x:700, w:300, bg:"#25A45C", ic:"family",   lab:"家里要准备的现金", val:psShort(d.self)+"万",  sub:"自费占 "+d.selfPct+"%", valColor:"#FFFFFF" }
+  ];
+  cards.forEach(c=>{
+    psRound(ctx, c.x, 268, c.w, 204, 22, c.bg);
+    // 图标：卡内左上，56px 保证细节可辨；标签右移避让
+    psIcon(ctx, c.ic, c.x + 42, 310, 56, "#FFFFFF", 2.2);
+    psText(ctx, c.lab, c.x + 78, 318, 23, "#D6E6FF", "400");
+    psText(ctx, c.val, c.x + c.w/2, 412, 62, c.valColor, "700", "center");
+    psText(ctx, c.sub, c.x + c.w/2, 450, 21, "#B9D4FF", "400", "center");
+  });
+
+  psRound(ctx, 44, 512, POSTER_W-88, 740, 34, "#FFFFFF");
+
+  ctx.beginPath(); ctx.arc(112, 592, 9, 0, Math.PI*2); ctx.fillStyle = "#1B5FD9"; ctx.fill();
+  psText(ctx, "比例看着不低，结算时自费还是超预期", 138, 602, 32, "#16264A", "700");
+
+  const chips = ["按参保地测算","按医保类型测算","按病种测算","异地就医也能问","肿瘤治疗能测","血液病能测"];
+  chips.forEach((t, i)=>{
+    const col = i % 2, row = Math.floor(i / 2);
+    const cx = 92 + col * 456, cy = 648 + row * 84;
+    psRound(ctx, cx, cy, 432, 70, 35, "#EAF1FC");
+    psText(ctx, t, cx + 216, cy + 45, 26, "#2C4A7C", "400", "center");
+  });
+
+  psRound(ctx, 92, 920, 162, 52, 26, "#1B5FD9");
+  psText(ctx, "个人咨询", 173, 955, 23, "#FFFFFF", "400", "center");
+  psText(ctx, "免费获取费用预估清单", 274, 958, 27, "#16264A", "700");
+
+  psContact(ctx, d, { x:92, y:1032, lab:23, val:32 });
+
+  psQRBox(ctx, 706, 962, 196, d.qr);
+  psText(ctx, "微信二维码", 804, 1192, 18, "#9FB2CB", "400", "center");
+
+  // 底部图标带：蓝底留白带上的医疗主题点缀（低对比，不碰上方白卡与下方脚注）
+  psIconRibbon(ctx, ["cross", "pill", "firstaid"], POSTER_W/2, 1272, 24, "#B9D4FF", 2.0);
+
+  psFooterNote(ctx, d, 1308, "#8FB6F2", 20);
+}
+
+/* ================= 模板 3 · 清单式 ================= */
+function drawList(ctx, d){
+  ctx.fillStyle = "#F4F6FA"; ctx.fillRect(0, 0, POSTER_W, POSTER_H);
+  // 头部与 KPI 卡式同款蓝色渐变（替代原先的深蓝平头，整体更明亮）
+  ctx.fillStyle = "#1B5FD9"; ctx.fillRect(0, 0, POSTER_W, 294);
+  const lg = ctx.createLinearGradient(0, 0, 0, 294);
+  lg.addColorStop(0, "#2F7BF6"); lg.addColorStop(1, "#1B5FD9");
+  ctx.fillStyle = lg; ctx.fillRect(0, 0, POSTER_W, 294);
+  psPaintPatternIn(ctx, psPattern, "#FFFFFF", 0.08, 0, 0, POSTER_W, 294);  // 仅头部渐变区
+
+  psText(ctx, "费用预估清单", 76, 108, 24, "#C9DCFF", "400");
+  psText(ctx, "一张清单看懂报销", 76, 190, 54, "#FFFFFF", "700");
+  psText(ctx, "按现行医保政策测算", 76, 240, 25, "#C9DCFF", "400");
+  // 头部右侧：医院图标锚点（与 KPI 卡式同款做法，低对比不抢字）
+  psIcon(ctx, "hospital", 918, 138, 92, "#8FB6F2", 2.4);
+
+  psRound(ctx, 52, 342, POSTER_W-104, 606, 22, "#FFFFFF");
+  psText(ctx, "患者测算结果", 88, 400, 22, "#8A97AD", "400");
+  ctx.strokeStyle = "#E4E9F2"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(88, 422); ctx.lineTo(992, 422); ctx.stroke();
+
+  const rows = [
+    ["预估总治疗费", psWan(d.totalTyp), "#1F3864", "hospital", "#1B5FD9"],
+    ["预估医保报销", psWan(d.reimb), "#2F7D5A", "shield", "#2F7D5A"],
+    ["预估自费（家里要出的）", psWan(d.self), "#D85A30", "family", "#D85A30"],
+    ["自费占比", d.selfPct + "%", "#5C6B82", "pulse", "#8A97AD"]
+  ];
+  // 每行图标配浅色软底块（与 KPI 卡式同款手法：色块承托图标，行内更有层次）
+  const rowChips = ["#EAF1FC", "#E7F6EE", "#FDEEE3", "#EFF3F8"];
+  rows.forEach((r, i)=>{
+    const y = 496 + i * 102;
+    psRound(ctx, 80, y - 34, 52, 52, 14, rowChips[i]);
+    // 用线性图标替代原来的两个同心圆点，让每一行"钱花在哪"更直观
+    psIcon(ctx, r[3], 106, y - 8, 40, r[4], 2.1);
+    psText(ctx, r[0], 150, y, 29, "#2C3E57", "400");
+    psText(ctx, r[1], 962, y, i === 2 ? 38 : 32, r[2], "700", "right");
+    if(i < rows.length - 1){
+      ctx.beginPath(); ctx.moveTo(88, y + 34); ctx.lineTo(992, y + 34); ctx.stroke();
+    }
+  });
+
+  psText(ctx, "覆盖病种", 142, 902, 25, "#2C3E57", "400");
+  psText(ctx, "脑出血 / 肿瘤 / 肺癌 / 脑梗 / 白血病", 962, 902, 21, "#5C6B82", "400", "right");
+
+  psRound(ctx, 52, 1000, POSTER_W-104, 216, 22, "#FFFFFF");
+  psQRBox(ctx, 88, 1028, 160, d.qr);
+  psContact(ctx, d, { x:288, y:1058, lab:19, val:28 });
+
+  psRound(ctx, 700, 1092, 268, 62, 31, "#1B5FD9");
+  psText(ctx, "扫码免费测算", 834, 1132, 25, "#FFFFFF", "700", "center");
+
+  // 底部图标带：浅灰底上的药械主题点缀
+  psIconRibbon(ctx, ["vial", "syringe", "cross"], POSTER_W/2, 1258, 24, "#AAB6C8", 2.0);
+
+  psFooterNote(ctx, d, 1296, "#98A5BA", 18);
+}
+
+/* ================= 模板 5 · 极简暖白式 ================= */
+function drawMinimal(ctx, d){
+  // 暖白底替代纯白，整体气质从"冷"转"暖"，但依旧克制
+  ctx.fillStyle = "#FFFBF3"; ctx.fillRect(0, 0, POSTER_W, POSTER_H);
+  psPaintPattern(ctx, psPattern, "#B45309", 0.035);   // 暖棕纹理，透明度压到最低
+
+  psIcon(ctx, "hospital", 108, 108, 44, "#B08D6A", 2.0);
+  psText(ctx, "医疗费用预估", 144, 116, 25, "#B08D6A", "400");
+  ctx.strokeStyle = "#D85A30"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(84, 162); ctx.lineTo(250, 162); ctx.stroke();
+
+  psText(ctx, "到底能报多少，", 84, 306, 72, "#16264A", "700");
+  psText(ctx, "算一遍就清楚了。", 84, 396, 72, "#16264A", "700");
+
+  // 极简版的唯一点缀：大号淡暖色医疗十字落在标题右侧留白，形简而识别度高，不与文字重叠
+  psIcon(ctx, "cross", 878, 306, 100, "#F6E3CF", 3.0);
+
+  ctx.strokeStyle = "#E8E2D8"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(84, 470); ctx.lineTo(996, 470); ctx.stroke();
+
+  const rows = [
+    ["总治疗费", psWan(d.totalTyp), "hospital", "#16264A"],
+    ["医保报销", psWan(d.reimb), "shield", "#16264A"],
+    ["家里要出", psWan(d.self), "family", "#D85A30"]
+  ];
+  // 行图标配暖调软底胶囊（蓝/绿/橙三色浅底，与 KPI 手法一致但明度更高）
+  const chips = ["#EAF1FC", "#E7F6EE", "#FDEEE3"];
+  const ics   = ["#7E9CC4", "#7FB89A", "#E8A88F"];
+  rows.forEach((r, i)=>{
+    const y = 570 + i * 150;
+    psRound(ctx, 76, y - 34, 52, 44, 22, chips[i]);
+    psIcon(ctx, r[2], 102, y - 12, 34, ics[i], 1.9);
+    psText(ctx, r[0], 148, y, 32, "#A79C8E", "400");
+    psText(ctx, r[1], 996, y, i === 2 ? 68 : 54, i === 2 ? "#D85A30" : "#16264A", "700", "right");
+    if(i < rows.length - 1){
+      ctx.strokeStyle = "#F0EAE0";
+      ctx.beginPath(); ctx.moveTo(84, y + 58); ctx.lineTo(996, y + 58); ctx.stroke();
+    }
+  });
+
+  psText(ctx, "自费占比 " + d.selfPct + "%　·　" + d.dzName + " · " + d.planName,
+    84, 1048, 24, "#A79C8E", "400");
+
+  ctx.strokeStyle = "#D85A30"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(84, 1088); ctx.lineTo(996, 1088); ctx.stroke();
+
+  psContact(ctx, d, { x:84, y:1130, lab:19, val:27, labColor:"#A79C8E" });
+  psQRBox(ctx, 812, 1128, 152, d.qr);
+
+  psFooterNote(ctx, d, 1320, "#B7AC9C", 17);
+}
+
+/* ===== 线性简笔图标库（Canvas 路径绘制，导出 PNG 清晰且不依赖外部资源）=====
+   风格约定：2px 线条、圆角端点、不填充实心色块（除必要的强调点）
+   语气：像医院导诊牌的图示，克制有温度，不卖萌 */
+const PS_ICON = {
+  /* 医院建筑：主体 + 顶部十字 + 门 + 窗 */
+  hospital: (ctx, x, y, s, color, lw)=>{
+    const w = s * 0.78, h = s * 0.62, bx = x - w/2, by = y - h/2 + s*0.06;
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    // 主体
+    ctx.beginPath();
+    ctx.moveTo(bx, by + h);
+    ctx.lineTo(bx, by + h*0.34);
+    ctx.lineTo(x, by - s*0.10);            // 屋顶尖
+    ctx.lineTo(bx + w, by + h*0.34);
+    ctx.lineTo(bx + w, by + h);
+    ctx.closePath(); ctx.stroke();
+    // 顶部十字
+    const cy = by - s*0.28, cs = s*0.075;
+    ctx.beginPath();
+    ctx.moveTo(x - cs, cy); ctx.lineTo(x + cs, cy);
+    ctx.moveTo(x, cy - cs); ctx.lineTo(x, cy + cs);
+    ctx.stroke();
+    // 门
+    ctx.beginPath();
+    ctx.moveTo(x - w*0.13, by + h);
+    ctx.lineTo(x - w*0.13, by + h*0.70);
+    ctx.lineTo(x + w*0.13, by + h*0.70);
+    ctx.lineTo(x + w*0.13, by + h);
+    ctx.stroke();
+    // 两侧窗
+    [-0.28, 0.28].forEach(k=>{
+      ctx.beginPath();
+      ctx.rect(x + w*k - w*0.07, by + h*0.50, w*0.14, h*0.14);
+      ctx.stroke();
+    });
+    ctx.restore();
+  },
+
+  /* 盾牌 + 勾：代表医保保障 */
+  shield: (ctx, x, y, s, color, lw)=>{
+    const w = s*0.62, h = s*0.74;
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x, y - h/2);
+    ctx.lineTo(x + w/2, y - h*0.30);
+    ctx.lineTo(x + w/2, y + h*0.06);
+    ctx.quadraticCurveTo(x + w/2, y + h*0.38, x, y + h/2);
+    ctx.quadraticCurveTo(x - w/2, y + h*0.38, x - w/2, y + h*0.06);
+    ctx.lineTo(x - w/2, y - h*0.30);
+    ctx.closePath(); ctx.stroke();
+    // 内部勾
+    ctx.beginPath();
+    ctx.moveTo(x - s*0.11, y - s*0.01);
+    ctx.lineTo(x - s*0.02, y + s*0.09);
+    ctx.lineTo(x + s*0.13, y - s*0.10);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 家庭：一大一小两个人形 + 屋顶，代表「家里要出的钱」
+     小尺寸下三个人会糊成一团，简化为"大人+孩子"两个剪影轮廓 */
+  family: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const w = s*0.80, h = s*0.40, by = y + s*0.04;
+    // 屋顶
+    ctx.beginPath();
+    ctx.moveTo(x - w/2, by);
+    ctx.lineTo(x, by - h);
+    ctx.lineTo(x + w/2, by);
+    ctx.stroke();
+    // 大人（左）：头 + 肩线
+    const ax = x - s*0.20, ah = by + s*0.14;
+    ctx.beginPath(); ctx.arc(ax, ah, s*0.082, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(ax - s*0.115, ah + s*0.28);
+    ctx.quadraticCurveTo(ax, ah + s*0.09, ax + s*0.115, ah + s*0.28);
+    ctx.stroke();
+    // 小孩（右，更矮更小，拉开距离避免糊在一起）
+    const kx = x + s*0.21, kh = by + s*0.25;
+    ctx.beginPath(); ctx.arc(kx, kh, s*0.058, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(kx - s*0.082, kh + s*0.20);
+    ctx.quadraticCurveTo(kx, kh + s*0.06, kx + s*0.082, kh + s*0.20);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 病历夹 + 十字：代表诊断/方案 */
+  record: (ctx, x, y, s, color, lw)=>{
+    const w = s*0.62, h = s*0.76;
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.rect(x - w/2, y - h/2, w, h);
+    ctx.stroke();
+    // 顶部夹子
+    ctx.beginPath();
+    ctx.rect(x - w*0.18, y - h/2 - s*0.06, w*0.36, s*0.10);
+    ctx.stroke();
+    // 内部十字
+    const cs = s*0.085, cy = y + s*0.02;
+    ctx.beginPath();
+    ctx.moveTo(x - cs, cy); ctx.lineTo(x + cs, cy);
+    ctx.moveTo(x, cy - cs); ctx.lineTo(x, cy + cs);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 听诊器：代表医生/问诊 */
+  stetho: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    // 耳件两根管
+    ctx.beginPath();
+    ctx.moveTo(x - s*0.22, y - s*0.30);
+    ctx.quadraticCurveTo(x - s*0.30, y - s*0.05, x - s*0.16, y + s*0.08);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + s*0.22, y - s*0.30);
+    ctx.quadraticCurveTo(x + s*0.30, y - s*0.05, x + s*0.16, y + s*0.08);
+    ctx.stroke();
+    // 汇合处的管
+    ctx.beginPath();
+    ctx.moveTo(x - s*0.16, y + s*0.08);
+    ctx.quadraticCurveTo(x, y + s*0.14, x + s*0.16, y + s*0.08);
+    ctx.stroke();
+    // 听头
+    ctx.beginPath();
+    ctx.arc(x, y + s*0.30, s*0.10, Math.PI*0.15, Math.PI*0.85, false);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 药丸胶囊：代表用药 */
+  pill: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineCap = "round";
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(-Math.PI/4);
+    const w = s*0.68, h = s*0.28;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(-w/2, -h/2, w, h, h/2) : ctx.rect(-w/2, -h/2, w, h);
+    ctx.stroke();
+    // 中间分隔线
+    ctx.beginPath(); ctx.moveTo(0, -h/2); ctx.lineTo(0, h/2); ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  },
+
+  /* 心电图折线：代表监测/病情 */
+  pulse: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const w = s*0.86, h = s*0.34;
+    ctx.beginPath();
+    ctx.moveTo(x - w/2, y);
+    ctx.lineTo(x - w*0.22, y);
+    ctx.lineTo(x - w*0.10, y - h*0.72);
+    ctx.lineTo(x + w*0.04, y + h*0.62);
+    ctx.lineTo(x + w*0.16, y);
+    ctx.lineTo(x + w/2, y);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 医疗十字（圆角）：代表医疗救助本身 */
+  cross: (ctx, x, y, s, color, lw)=>{
+    const a = s*0.30, b = s*0.10, r = s*0.05;   // a=臂长半宽 b=臂厚半宽
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    // 逐臂画圆角十字轮廓，避免 fill 与描边风格冲突
+    ctx.beginPath();
+    ctx.moveTo(x - b + r, y - a);
+    ctx.arcTo(x + b, y - a, x + b, y - a + r, r);
+    ctx.lineTo(x + b, y - b - r);
+    ctx.arcTo(x + b, y - b, x + b - r, y - b, r);
+    ctx.lineTo(x + a - r, y - b);
+    ctx.arcTo(x + a, y - b, x + a, y - b + r, r);
+    ctx.lineTo(x + a, y + b - r);
+    ctx.arcTo(x + a, y + b, x + a - r, y + b, r);
+    ctx.lineTo(x + b + r, y + b);
+    ctx.arcTo(x + b, y + b, x + b, y + b + r, r);
+    ctx.lineTo(x + b, y + a - r);
+    ctx.arcTo(x + b, y + a, x + b - r, y + a, r);
+    ctx.lineTo(x - b + r, y + a);
+    ctx.arcTo(x - b, y + a, x - b, y + a - r, r);
+    ctx.lineTo(x - b, y + b + r);
+    ctx.arcTo(x - b, y + b, x - b + r, y + b, r);
+    ctx.lineTo(x - a + r, y + b);
+    ctx.arcTo(x - a, y + b, x - a, y + b - r, r);
+    ctx.lineTo(x - a, y - b + r);
+    ctx.arcTo(x - a, y - b, x - a + r, y - b, r);
+    ctx.lineTo(x - b - r, y - b);
+    ctx.arcTo(x - b, y - b, x - b, y - b - r, r);
+    ctx.lineTo(x - b, y - a + r);
+    ctx.arcTo(x - b, y - a, x - b + r, y - a, r);
+    ctx.closePath(); ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 注射器（斜置 45°）：针头 + 针管 + 推杆 + 刻度 */
+  syringe: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.translate(x, y); ctx.rotate(Math.PI/4);   // 斜置，针头朝左下
+    const w = s*0.78, h = s*0.26;
+    // 针管
+    ctx.beginPath();
+    ctx.rect(-w*0.18, -h/2, w*0.46, h);
+    ctx.stroke();
+    // 针座（梯形）+ 针头
+    ctx.beginPath();
+    ctx.moveTo(-w*0.18, -h*0.32); ctx.lineTo(-w*0.30, -h*0.22);
+    ctx.moveTo(-w*0.18,  h*0.32); ctx.lineTo(-w*0.30,  h*0.22);
+    ctx.moveTo(-w*0.30, -h*0.22); ctx.lineTo(-w*0.30, h*0.22);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-w*0.30, 0); ctx.lineTo(-w*0.52, 0);
+    ctx.stroke();
+    // 推杆 + 按压头
+    ctx.beginPath();
+    ctx.moveTo(w*0.28, 0); ctx.lineTo(w*0.46, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(w*0.46, -h*0.44); ctx.lineTo(w*0.46, h*0.44);
+    ctx.stroke();
+    // 管内液面刻度（两道短线，克制不繁琐）
+    ctx.beginPath();
+    ctx.moveTo(-w*0.02, -h*0.30); ctx.lineTo(-w*0.02, h*0.30);
+    ctx.moveTo(w*0.12, -h*0.30); ctx.lineTo(w*0.12, h*0.30);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 体温计：圆头水银泡 + 管身 + 刻度 */
+  thermo: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.translate(x, y); ctx.rotate(Math.PI/4);   // 斜置，圆头朝左下
+    const h = s*0.80, w = s*0.20, top = -h/2;
+    // 管身（上端封口、下端接圆泡，避免出现"开口棍子"的断笔）
+    ctx.beginPath();
+    ctx.moveTo(-w/2, top); ctx.lineTo(-w/2, h/2 - w*0.7);
+    ctx.arc(0, h/2 - w*0.7, w/2, Math.PI, 0, true);   // 底部与圆泡相接
+    ctx.lineTo(w/2, top);
+    ctx.quadraticCurveTo(w/2, top - w*0.28, 0, top - w*0.28);   // 顶端圆角收口
+    ctx.quadraticCurveTo(-w/2, top - w*0.28, -w/2, top);
+    ctx.stroke();
+    // 圆头水银泡（实心小点，唯一允许的强调点）
+    ctx.beginPath();
+    ctx.arc(0, h/2 - w*0.7, w*0.32, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+    // 刻度（右侧三道短线，长短相间）
+    [0.1, 0.24, 0.38].forEach((k, i)=>{
+      const len = i === 1 ? w*0.46 : w*0.30;
+      ctx.beginPath();
+      ctx.moveTo(w/2, top + h*k);
+      ctx.lineTo(w/2 + len, top + h*k);
+      ctx.stroke();
+    });
+    ctx.restore();
+  },
+
+  /* 口罩：主体 + 耳带 + 两道褶皱 */
+  mask: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const w = s*0.66, h = s*0.46, r = s*0.10;
+    // 主体（圆角梯形：上宽下略窄，用普通圆角矩形近似）
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x - w/2, y - h/2, w, h, r) : ctx.rect(x - w/2, y - h/2, w, h);
+    ctx.stroke();
+    // 左右耳带（弧线挂在主体两侧）
+    ctx.beginPath();
+    ctx.moveTo(x - w/2, y - h*0.24);
+    ctx.quadraticCurveTo(x - w*0.82, y - h*0.34, x - w*0.82, y - h*0.02);
+    ctx.moveTo(x + w/2, y - h*0.24);
+    ctx.quadraticCurveTo(x + w*0.82, y - h*0.34, x + w*0.82, y - h*0.02);
+    ctx.stroke();
+    // 褶皱两道
+    ctx.beginPath();
+    ctx.moveTo(x - w*0.36, y - h*0.10); ctx.lineTo(x + w*0.36, y - h*0.10);
+    ctx.moveTo(x - w*0.36, y + h*0.14); ctx.lineTo(x + w*0.36, y + h*0.14);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 药瓶：瓶盖 + 瓶肩 + 瓶身 + 标签横线 */
+  vial: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const capW = s*0.32, capH = s*0.13, bodyW = s*0.54, bodyH = s*0.44;
+    const byTop = y - s*0.38;
+    // 瓶盖
+    ctx.beginPath();
+    ctx.rect(x - capW/2, byTop, capW, capH);
+    ctx.stroke();
+    // 瓶肩（盖下收窄展开到瓶身）
+    ctx.beginPath();
+    ctx.moveTo(x - capW/2, byTop + capH);
+    ctx.lineTo(x - bodyW/2, byTop + capH + s*0.10);
+    ctx.moveTo(x + capW/2, byTop + capH);
+    ctx.lineTo(x + bodyW/2, byTop + capH + s*0.10);
+    ctx.stroke();
+    // 瓶身（两侧直线 + 圆角底）
+    ctx.beginPath();
+    ctx.moveTo(x - bodyW/2, byTop + capH + s*0.10);
+    ctx.lineTo(x - bodyW/2, y + s*0.34 - s*0.08);
+    ctx.quadraticCurveTo(x - bodyW/2, y + s*0.34, x - bodyW/2 + s*0.08, y + s*0.34);
+    ctx.lineTo(x + bodyW/2 - s*0.08, y + s*0.34);
+    ctx.quadraticCurveTo(x + bodyW/2, y + s*0.34, x + bodyW/2, y + s*0.34 - s*0.08);
+    ctx.lineTo(x + bodyW/2, byTop + capH + s*0.10);
+    ctx.stroke();
+    // 标签：两道横线
+    ctx.beginPath();
+    ctx.moveTo(x - bodyW*0.30, y + s*0.06); ctx.lineTo(x + bodyW*0.30, y + s*0.06);
+    ctx.moveTo(x - bodyW*0.30, y + s*0.18); ctx.lineTo(x + bodyW*0.30, y + s*0.18);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 输液袋：吊袋 + 挂钩口 + 下部滴管 */
+  drip: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const w = s*0.44, h = s*0.44;
+    const top = y - s*0.34;
+    // 挂钩口
+    ctx.beginPath();
+    ctx.rect(x - w*0.16, top, w*0.32, s*0.08);
+    ctx.stroke();
+    // 袋体（圆角矩形）
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x - w/2, top + s*0.12, w, h, s*0.08) : ctx.rect(x - w/2, top + s*0.12, w, h);
+    ctx.stroke();
+    // 袋内液面线（波浪感省略，用横线克制表达）
+    ctx.beginPath();
+    ctx.moveTo(x - w*0.30, top + s*0.30); ctx.lineTo(x + w*0.30, top + s*0.30);
+    ctx.stroke();
+    // 导管 + 滴速小圆
+    ctx.beginPath();
+    ctx.moveTo(x, top + s*0.12 + h); ctx.lineTo(x, y + s*0.30);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y + s*0.36, s*0.05, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  /* 急救箱：箱体 + 提手 + 中央十字 */
+  firstaid: (ctx, x, y, s, color, lw)=>{
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = lw || 2; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    const w = s*0.72, h = s*0.50, r = s*0.08;
+    const byTop = y - s*0.18;
+    // 提手
+    ctx.beginPath();
+    ctx.moveTo(x - w*0.16, byTop);
+    ctx.quadraticCurveTo(x, byTop - s*0.18, x + w*0.16, byTop);
+    ctx.stroke();
+    // 箱体
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(x - w/2, byTop, w, h, r) : ctx.rect(x - w/2, byTop, w, h);
+    ctx.stroke();
+    // 箱体上沿分隔线
+    ctx.beginPath();
+    ctx.moveTo(x - w/2, byTop + h*0.22); ctx.lineTo(x + w/2, byTop + h*0.22);
+    ctx.stroke();
+    // 中央十字
+    const cs = s*0.10, cy = byTop + h*0.62;
+    ctx.beginPath();
+    ctx.moveTo(x - cs, cy); ctx.lineTo(x + cs, cy);
+    ctx.moveTo(x, cy - cs); ctx.lineTo(x, cy + cs);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
+/* 图标总开关：默认开启 */
+let psIcons = true;
+
+/* 统计图标绘制次数（供测试断言"图标确实被画了"） */
+let psIconDrawCount = 0;
+function psIcon(ctx, name, x, y, s, color, lw){
+  if(!psIcons) return;
+  const fn = PS_ICON[name];
+  if(!fn) return;
+  fn(ctx, x, y, s, color, lw);
+  psIconDrawCount++;
+}
+
+/* 图标带：一排同规格小图标，以 cx 为中心均匀排布。
+   用途：底部留白带做医疗主题点缀，低对比色、远离正文，导出后"有细节但不抢字" */
+function psIconRibbon(ctx, names, cx, y, s, color, lw){
+  if(!psIcons || !names || !names.length) return;
+  const gap = s * 1.9;                      // 图标中心距
+  const total = (names.length - 1) * gap;
+  names.forEach((n, i)=>{
+    psIcon(ctx, n, cx - total/2 + i * gap, y, s, color, lw);
+  });
+}
+
+/* ===== 背景图案（只铺底色层，永远压在文字下方）=====
+   原则：零干扰。图案透明度最高 0.10，视觉上"有纹理但不抢字"。
+   每种图案接收 (ctx, color, alpha)，自行处理绘制范围。 */
+const PS_PATTERN = {
+  none:  { name:"无图案", fn:null },
+  dots:  { name:"点阵", fn:(ctx, color, alpha)=>{
+    ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = color;
+    const gap = 34;
+    for(let y = 0; y < POSTER_H; y += gap){
+      for(let x = 0; x < POSTER_W; x += gap){
+        ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }},
+  grid:  { name:"网格", fn:(ctx, color, alpha)=>{
+    ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 1;
+    const gap = 48;
+    for(let x = 0; x <= POSTER_W; x += gap){
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, POSTER_H); ctx.stroke();
+    }
+    for(let y = 0; y <= POSTER_H; y += gap){
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(POSTER_W, y); ctx.stroke();
+    }
+    ctx.restore();
+  }},
+  diag:  { name:"斜纹", fn:(ctx, color, alpha)=>{
+    ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 2;
+    const gap = 26;
+    for(let i = -POSTER_H; i < POSTER_W + POSTER_H; i += gap){
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + POSTER_H, POSTER_H); ctx.stroke();
+    }
+    ctx.restore();
+  }},
+  wave:  { name:"波纹", fn:(ctx, color, alpha)=>{
+    ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 2;
+    const gap = 54, amp = 12, len = 120;
+    for(let row = 0; row * gap < POSTER_H + gap; row++){
+      const y0 = row * gap;
+      ctx.beginPath();
+      for(let x = 0; x <= POSTER_W; x += 4){
+        const y = y0 + Math.sin((x / len) * Math.PI * 2) * amp;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }},
+  cross: { name:"十字标", fn:(ctx, color, alpha)=>{
+    ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 1.6;
+    const gap = 56, s = 7;
+    for(let y = gap; y < POSTER_H; y += gap){
+      for(let x = gap; x < POSTER_W; x += gap){
+        ctx.beginPath();
+        ctx.moveTo(x - s, y); ctx.lineTo(x + s, y);
+        ctx.moveTo(x, y - s); ctx.lineTo(x, y + s);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }},
+  arc:   { name:"弧线", fn:(ctx, color, alpha)=>{
+    ctx.save(); ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.lineWidth = 2;
+    // 同心大圆弧，从画布左下角发散，形成秩序感
+    for(let r = 120; r < 1600; r += 90){
+      ctx.beginPath();
+      ctx.arc(-40, POSTER_H + 40, r, -Math.PI / 2, 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }}
+};
+let psPattern = "none";     // 当前图案
+
+/* 统一入口：按配置在底色之上、内容之下铺图案
+   注意：图案函数会铺满整幅画布，如需限定区域，调用方必须先 ctx.clip() */
+function psPaintPattern(ctx, key, color, alpha){
+  const p = PS_PATTERN[key];
+  if(!p || !p.fn) return;
+  p.fn(ctx, color, alpha);
+}
+/* 限定矩形区域内铺图案（内部自动 clip，避免污染白卡等不透明区域） */
+function psPaintPatternIn(ctx, key, color, alpha, x, y, w, h){
+  const p = PS_PATTERN[key];
+  if(!p || !p.fn) return;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  p.fn(ctx, color, alpha);
+  ctx.restore();
+}
+
+/* ===== 图形工具：环形 / 条形 / 刻度（全部由真实数据驱动角度与长度）===== */
+/* 环形进度：从 -90° 起画，pct 为占比 0~1 */
+function psRing(ctx, cx, cy, r, thick, pct, colorOn, colorOff){
+  const start = -Math.PI / 2;
+  ctx.save();
+  ctx.lineWidth = thick;
+  ctx.lineCap = "butt";
+  // 底环（自费部分）
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, start, start + Math.PI * 2);
+  ctx.strokeStyle = colorOff;
+  ctx.stroke();
+  // 报销部分
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, start, start + Math.PI * 2 * Math.max(0, Math.min(1, pct)));
+  ctx.strokeStyle = colorOn;
+  ctx.stroke();
+  ctx.restore();
+}
+/* 水平条形：len 为占满宽度比例 */
+function psBar(ctx, x, y, w, h, pct, color, bg){
+  psRound(ctx, x, y, w, h, h / 2, bg);
+  const ww = Math.max(h, w * Math.max(0, Math.min(1, pct)));
+  psRound(ctx, x, y, ww, h, h / 2, color);
+}
+/* 刻度尺：在给定宽度内均分 n 段并标数值 */
+function psScale(ctx, x, y, w, labels, color, tickColor){
+  ctx.save();
+  ctx.strokeStyle = tickColor; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.stroke();
+  const step = w / (labels.length - 1);
+  labels.forEach((t, i)=>{
+    const tx = x + step * i;
+    ctx.beginPath(); ctx.moveTo(tx, y - 8); ctx.lineTo(tx, y + 8); ctx.stroke();
+    psText(ctx, t, tx, y + 34, 18, color, "400", i === 0 ? "left" : (i === labels.length - 1 ? "right" : "center"));
+  });
+  ctx.restore();
+}
+
+/* ================= 模板 6 · 环形占比式 ================= */
+function drawDonut(ctx, d){
+  ctx.fillStyle = "#F0FDFA"; ctx.fillRect(0, 0, POSTER_W, POSTER_H);
+  psPaintPattern(ctx, psPattern, "#0F766E", 0.05);
+
+  psText(ctx, "医疗费用预估", 72, 108, 24, "#0F766E", "400");
+  psText(ctx, "医保到底替你承担了多少？", 72, 188, 50, "#134E4A", "700");
+  // 头部右侧：医院图标锚点（薄荷浅色，与主色同族）
+  psIcon(ctx, "hospital", 918, 128, 84, "#9FD8CF", 2.4);
+
+  // 环心：自费金额（主角）；环外加白色托底圆，让环形从薄荷底上"浮"出来
+  const cx = POSTER_W / 2, cy = 470, R = 200, TH = 56;
+  ctx.beginPath(); ctx.arc(cx, cy, R + 36, 0, Math.PI * 2);
+  ctx.fillStyle = "#FFFFFF"; ctx.fill();
+  psRing(ctx, cx, cy, R, TH, d.reimbPct / 100, "#0F766E", "#FDBA74");
+  psText(ctx, "家里要出", cx, cy - 26, 24, "#78716C", "400", "center");
+  psText(ctx, psShort(d.self) + " 万", cx, cy + 42, 64, "#EA580C", "700", "center");
+  psText(ctx, "自费占比 " + d.selfPct + "%", cx, cy + 86, 21, "#78716C", "400", "center");
+
+  // 图例：两行，色块 + 名称 + 金额 + 占比
+  const legend = [
+    ["#0F766E", "医保报销", psWan(d.reimb), d.reimbPct + "%", "shield"],
+    ["#EA580C", "自己承担", psWan(d.self), d.selfPct + "%", "family"]
+  ];
+  legend.forEach((g, i)=>{
+    const y = 742 + i * 76;
+    // 图标加浅色软底块，承托语义图标（盾牌=保障、家庭=自家承担）
+    psRound(ctx, 84, y - 34, 52, 48, 14, i === 0 ? "#E6F4F1" : "#FDEEE3");
+    psIcon(ctx, g[4], 110, y - 10, 40, g[0], 2.1);
+    psText(ctx, g[1], 150, y, 27, "#134E4A", "400");
+    psText(ctx, g[2], 664, y, 27, "#134E4A", "700", "right");
+    psText(ctx, g[3], 984, y, 27, "#78716C", "400", "right");
+  });
+  ctx.strokeStyle = "#CCFBF1"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(96, 856); ctx.lineTo(984, 856); ctx.stroke();
+
+  // 总费用条：报销/自费两段真实比例
+  psText(ctx, "总治疗费 " + psWan(d.totalTyp), 96, 906, 23, "#0F766E", "400");
+  const barW = POSTER_W - 192;
+  psRound(ctx, 96, 926, barW, 22, 11, "#FDBA74");
+  psRound(ctx, 96, 926, Math.max(22, barW * d.reimbPct / 100), 22, 11, "#0F766E");
+
+  psContact(ctx, d, { x:96, y:1032, lab:19, val:28, labColor:"#78716C", valColor:"#134E4A" });
+  psQRBox(ctx, 786, 1002, 178, d.qr);
+
+  // 底部图标带：薄荷底上的暖灰点缀
+  psIconRibbon(ctx, ["pill", "drip", "cross"], POSTER_W/2, 1250, 24, "#86C4BB", 2.0);
+
+  psFooterNote(ctx, d, 1288, "#78716C", 18);
+}
+
+/* ================= 模板 7 · 条形对比式 ================= */
+function drawBars(ctx, d){
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, POSTER_W, POSTER_H);
+  // 头部与 KPI 卡式同款蓝色渐变（替代原先的深蓝平头）
+  ctx.fillStyle = "#1B5FD9"; ctx.fillRect(0, 0, POSTER_W, 268);
+  const lg = ctx.createLinearGradient(0, 0, 0, 268);
+  lg.addColorStop(0, "#2F7BF6"); lg.addColorStop(1, "#1B5FD9");
+  ctx.fillStyle = lg; ctx.fillRect(0, 0, POSTER_W, 268);
+  psPaintPatternIn(ctx, psPattern, "#FFFFFF", 0.08, 0, 0, POSTER_W, 268);  // 仅头部渐变区
+
+  psText(ctx, "医疗费用预估", 72, 100, 23, "#C9DCFF", "400");
+  psText(ctx, "钱主要花在哪一段", 72, 178, 52, "#FFFFFF", "700");
+  psText(ctx, "按真实测算结果拆分", 72, 224, 24, "#DBEAFE", "400");
+  // 头部右侧：医院图标锚点
+  psIcon(ctx, "hospital", 918, 128, 84, "#8FB6F2", 2.4);
+
+  // 三条主指标条：总费用 / 报销 / 自费，长度真实比例
+  const rows = [
+    ["总治疗费", psWan(d.totalTyp), 1, "#3B82F6", "#DBEAFE", "hospital"],
+    ["医保报销", psWan(d.reimb), d.reimbPct / 100, "#10B981", "#D1FAE5", "shield"],
+    ["家里要出", psWan(d.self), d.selfPct / 100, "#F59E0B", "#FEF3C7", "family"]
+  ];
+  // 行图标加同族浅色软底块（蓝/绿/琥珀，与条形色一一对应）
+  const chipC = ["#DBEAFE", "#D1FAE5", "#FEF3C7"];
+  const iconC = ["#1D4ED8", "#059669", "#D97706"];
+  const barW = 480;              // 300→780，右侧 800–984 留给金额，避免数字压在条上
+  rows.forEach((r, i)=>{
+    const y = 348 + i * 116;
+    psRound(ctx, 60, y - 14, 64, 52, 14, chipC[i]);
+    psIcon(ctx, r[5], 92, y + 12, 40, iconC[i], 2.1);
+    psText(ctx, r[0], 140, y + 44, 25, "#1E293B", "400");
+    psBar(ctx, 300, y, barW, 30, r[2], r[3], r[4]);
+    psText(ctx, r[1], 984, y + 40, 30, "#1E3A8A", "700", "right");
+  });
+
+  ctx.strokeStyle = "#E2E8F0"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(72, 700); ctx.lineTo(984, 700); ctx.stroke();
+
+  // 四段构成：竖向柱状（示意结构，非真实细分数据故不标数值）
+  psText(ctx, "本次测算方案", 72, 760, 21, "#64748B", "400");
+  psText(ctx, d.dzName + " · " + d.planName, 72, 800, 30, "#1E3A8A", "700");
+
+  psText(ctx, "关注指标", 72, 866, 21, "#64748B", "400");
+  psText(ctx, "总费用区间 " + psShort(d.totalLo) + "–" + psShort(d.totalHi) + " 万", 72, 904, 24, "#334155", "400");
+  psText(ctx, "自费占比 " + d.selfPct + "%", 520, 904, 24, "#334155", "400");
+
+  ctx.strokeStyle = "#E2E8F0";
+  ctx.beginPath(); ctx.moveTo(72, 944); ctx.lineTo(984, 944); ctx.stroke();
+
+  psContact(ctx, d, { x:72, y:1000, lab:19, val:28, labColor:"#64748B", valColor:"#1E3A8A" });
+  psQRBox(ctx, 792, 980, 170, d.qr);
+
+  // 底部图标带：白底上的浅灰蓝点缀
+  psIconRibbon(ctx, ["syringe", "vial", "pulse"], POSTER_W/2, 1248, 24, "#B9C4D6", 2.0);
+
+  psFooterNote(ctx, d, 1288, "#94A3B8", 18);
+}
+
+/* ================= 模板 8 · 票据式 ================= */
+function drawTicket(ctx, d){
+  ctx.fillStyle = "#F5F5F4"; ctx.fillRect(0, 0, POSTER_W, POSTER_H);
+  psPaintPattern(ctx, psPattern, "#B45309", 0.035);   // 暖棕纹理替代黑灰，票据细节多、透明度压低
+
+  // 票据主卡（上下带齿孔效果的圆角矩形）
+  const MX = 60, MY = 72, MW = POSTER_W - 120;
+  psRound(ctx, MX, MY, MW, 1150, 18, "#FFFBEB");
+  // 顶部票头：琥珀暖色（替代原先的黑色，票据感保留、整体转暖）
+  psRound(ctx, MX, MY, MW, 190, 18, "#C2610A");
+  ctx.fillStyle = "#C2610A"; ctx.fillRect(MX, MY + 160, MW, 30);
+
+  // 票头右侧：医院图标做票据"抬头"标识（浅琥珀，与票头同族）
+  psIcon(ctx, "hospital", MX + MW - 88, MY + 132, 70, "#FCD9A0", 2.2);
+  psText(ctx, "费用预估凭单", MX + 44, MY + 74, 22, "#FFEAC4", "400");
+  psText(ctx, "ESTIMATE", MX + MW - 44, MY + 74, 20, "#FDE68A", "400", "right");
+  psText(ctx, "预估自费", MX + 44, MY + 108, 20, "#FFEAC4", "400");
+  psText(ctx, psWan(d.self), MX + 44, MY + 158, 62, "#FFF8EC", "700");
+
+  // 虚线撕口
+  ctx.save();
+  ctx.setLineDash([10, 8]); ctx.strokeStyle = "#D6D3D1"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(MX + 24, MY + 246); ctx.lineTo(MX + MW - 24, MY + 246); ctx.stroke();
+  ctx.restore();
+
+  // 明细行（票据感：标签左，金额右，点线连接）
+  const lines = [
+    ["总治疗费", psWan(d.totalTyp)],
+    ["医保报销", psWan(d.reimb)],
+    ["报销比例", d.reimbPct + "%"],
+    ["自费占比", d.selfPct + "%"]
+  ];
+  lines.forEach((r, i)=>{
+    const y = MY + 320 + i * 84;
+    psText(ctx, r[0], MX + 44, y, 26, "#57534E", "400");
+    psText(ctx, r[1], MX + MW - 44, y, 28, "#44403C", "700", "right");
+    if(i < lines.length - 1){
+      ctx.save();
+      ctx.setLineDash([3, 6]); ctx.strokeStyle = "#E7E5E4"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(MX + 44, y + 28); ctx.lineTo(MX + MW - 44, y + 28); ctx.stroke();
+      ctx.restore();
+    }
+  });
+
+  // 合计带：浅琥珀底 + 深棕字（替代原先的黑底，保持票据"高亮合计"的层次）
+  psRound(ctx, MX + 32, MY + 676, MW - 64, 92, 10, "#FDE68A");
+  psText(ctx, "本次测算方案", MX + 60, MY + 712, 20, "#A16207", "400");
+  psText(ctx, d.dzName + " · " + d.planName, MX + 60, MY + 748, 26, "#7C2D12", "700");
+
+  // 联系方式（票根区）
+  ctx.save();
+  ctx.setLineDash([10, 8]); ctx.strokeStyle = "#D6D3D1"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(MX + 24, MY + 800); ctx.lineTo(MX + MW - 24, MY + 800); ctx.stroke();
+  ctx.restore();
+
+  psContact(ctx, d, { x:MX + 44, y:MY + 866, lab:19, val:28, labColor:"#A8A29E", valColor:"#44403C" });
+  psQRBox(ctx, MX + MW - 220, MY + 836, 168, d.qr);
+  psText(ctx, "凭本单可致电核对", MX + 44, MY + 1064, 19, "#A8A29E", "400");
+
+  // 票据下方留白带：暖灰点缀（票据语言：小而克制）
+  psIconRibbon(ctx, ["pill", "thermo", "firstaid"], POSTER_W/2, 1256, 24, "#C9C3B8", 2.0);
+
+  psFooterNote(ctx, d, 1300, "#A8A29E", 18);
+}
+
+const PS_TPL = {
+  kpi:       { name:"KPI 卡式", desc:"对齐参考图", draw:drawKPI,     sw:["#2F7BF6","#25A45C","#FFFFFF"] },
+  list:      { name:"清单式",   desc:"渐变蓝·逐条核对", draw:drawList,    sw:["#2F7BF6","#D85A30","#F4F6FA"] },
+  minimal:   { name:"极简暖白", desc:"留白呼吸感",   draw:drawMinimal,  sw:["#FFFBF3","#16264A","#D85A30"] },
+  donut:     { name:"环形占比", desc:"报销 vs 自费", draw:drawDonut,   sw:["#0F766E","#F97316","#F0FDFA"] },
+  bars:      { name:"条形对比", desc:"渐变蓝·看构成", draw:drawBars,    sw:["#2F7BF6","#10B981","#F59E0B"] },
+  ticket:    { name:"票据式",   desc:"暖色凭单",     draw:drawTicket,   sw:["#B45309","#FFFBEB","#D97706"] }
+};
+
+/* ---------- 渲染图案选择器（每个选项画真实缩略图，避免"盲选"）---------- */
+const PS_PAT_KEYS = ["none","dots","grid","diag","wave","cross","arc"];
+function renderPats(){
+  const box = $("p_pats");
+  box.innerHTML = PS_PAT_KEYS.map(k=>{
+    return '<div class="ps-pat' + (psPattern === k ? " on" : "") + '" data-k="' + k + '">'
+      + '<canvas width="132" height="56" data-thumb="' + k + '"></canvas>'
+      + '<div class="pn">' + PS_PATTERN[k].name + '</div></div>';
+  }).join("");
+  // 在缩略画布上按迷你比例绘制同一套图案
+  box.querySelectorAll("canvas[data-thumb]").forEach(cv=>{
+    const k = cv.dataset.thumb;
+    const c2 = cv.getContext("2d");
+    c2.fillStyle = "#E8EEF7"; c2.fillRect(0, 0, 132, 56);
+    const p = PS_PATTERN[k];
+    if(p && p.fn){
+      c2.save();
+      c2.scale(132 / 680, 56 / 900);     // 用海报同比例缩放
+      // 缩略图放大透明度（0.30→0.55）：小图上看不清图案就失去"所见即所得"的意义
+      p.fn(c2, "#1F3864", 0.55);
+      c2.restore();
+    }else{
+      c2.strokeStyle = "#C3D0E2"; c2.lineWidth = 1;
+      c2.strokeRect(0.5, 0.5, 131, 55);
+    }
+  });
+  box.querySelectorAll(".ps-pat").forEach(el=>{
+    el.onclick = ()=>{ psPattern = el.dataset.k; renderPats(); saveProfile(); drawPoster(); };
+  });
+}
+
+/* ---------- 渲染模板选择器 ---------- */
+function renderTpls(){
+  const box = $("p_tpls");
+  box.innerHTML = Object.keys(PS_TPL).map(k=>{
+    const t = PS_TPL[k];
+    return '<div class="ps-tpl' + (psTpl === k ? " on" : "") + '" data-k="' + k + '">'
+      + '<div class="sw">' + t.sw.map(c=>'<i style="background:' + c + ';border:1px solid rgba(0,0,0,.08)"></i>').join("") + '</div>'
+      + '<div class="pt">' + t.name + '</div><div class="pd">' + t.desc + '</div></div>';
+  }).join("");
+  box.querySelectorAll(".ps-tpl").forEach(el=>{
+    el.onclick = ()=>{ psTpl = el.dataset.k; renderTpls(); drawPoster(); };
+  });
+}
+
+/* ---------- 绘制海报 ---------- */
+function drawPoster(){
+  const cv = $("posterCanvas");
+  const d = posterData();
+  cv.width = POSTER_W; cv.height = POSTER_H;
+  const ctx = cv.getContext("2d");
+  ctx.clearRect(0, 0, POSTER_W, POSTER_H);
+  if(!d){
+    ctx.fillStyle = "#EEF2F8"; ctx.fillRect(0, 0, POSTER_W, POSTER_H);
+    psText(ctx, "请先完成一次测算", POSTER_W/2, POSTER_H/2 - 20, 46, "#98A5BA", "700", "center");
+    psText(ctx, "选好病种与治疗方案后，海报会自动带上测算结果", POSTER_W/2, POSTER_H/2 + 50, 26, "#98A5BA", "400", "center");
+    $("posterHint").textContent = "尚未测算：完成①②③后这里会显示海报预览。";
+    return;
+  }
+  (PS_TPL[psTpl] || PS_TPL.kpi).draw(ctx, d);
+  $("posterHint").textContent = "当前模板：" + PS_TPL[psTpl].name
+    + "　·　自费 " + psWan(d.self) + "（占比 " + d.selfPct + "%）　·　点「生成并保存海报」存入手机相册";
+}
+
+/* ---------- 保存（移动端全兼容：系统分享 → 下载 → 长按兜底） ---------- */
+function psEnv(){
+  const ua = navigator.userAgent || "";
+  return {
+    ios: /iP(hone|ad|od)/i.test(ua) || (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1),
+    android: /Android/i.test(ua),
+    weixin: /MicroMessenger/i.test(ua),
+    share: (()=>{ try{
+      const f = new File([new Blob(["x"])], "t.png", {type:"image/png"});
+      return !!(navigator.canShare && navigator.canShare({files:[f]}));
+    }catch(e){ return false; } })()
+  };
+}
+function psShowSave(dataUrl, tip, tip2){
+  $("psSaveImg").src = dataUrl;
+  $("psSaveTip").textContent = tip || "";
+  $("psSaveTip2").textContent = tip2 || "长按上方图片 → 选择「保存图片 / 存储图像」";
+  $("psSave").hidden = false;
+}
+(function(){
+  const close = ()=>{ $("psSave").hidden = true; $("psSaveImg").src = ""; };
+  $("psSaveClose").onclick = close;
+  $("psSave").addEventListener("click", e=>{ if(e.target === $("psSave")) close(); });
+})();
+function psFallbackSave(blob, dataUrl, nm, env){
+  /* 微信内置浏览器：a[download] 基本无效，长按保存是唯一可靠路径 */
+  if(env.weixin){
+    psShowSave(dataUrl, "微信内暂不支持自动下载。长按下方图片 → 「保存图片」即可存入相册；或点右上角 ··· 选择「在浏览器打开」后重试。",
+      "长按上方图片 → 「保存图片」");
+    return;
+  }
+  /* 旧版 iOS Safari / iOS 上分享不可用时：download 属性无法存入相册，走长按保存 */
+  if(env.ios){
+    psShowSave(dataUrl, "iOS 浏览器需手动保存。长按下方图片 → 「存储图像」/「添加到照片」即可存入相册。",
+      "长按上方图片 → 「存储图像」");
+    return;
+  }
+  try{
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = nm;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    toast(env.android ? "海报已开始下载：可在通知栏/下载目录查看" : "海报已下载：请到浏览器下载列表查看");
+  }catch(e){
+    psShowSave(dataUrl, "当前浏览器不支持自动下载。可长按下方图片手动保存，或换用系统浏览器重试。");
+  }
+}
+function downloadPoster(){
+  const d = posterData();
+  if(!d){ toast("请先完成一次测算再生成海报"); return; }
+  /* 姓名与电话都没填：海报上不会有任何联系方式，家属无法找到顾问 */
+  if(!d.advisor && !d.phone && !d.qr){
+    if(!confirm("还没有填写顾问姓名、电话，也没有上传二维码。\n导出的海报上没有任何联系方式，家属无法找到你。\n继续导出？")) return;
+  }else if(!d.qr){
+    /* 未上传二维码时提醒：占位框是空的，直接发出去家属扫不到人 */
+    if(!confirm("还没有上传微信二维码，导出的海报右下角会是空白。\n继续导出？")) return;
+  }
+  drawPoster();
+  const env = psEnv();
+  const cv = $("posterCanvas");
+  const nm = "费用预估海报_" + PS_TPL[psTpl].name + (d.phone || d.advisor ? "_" + (d.phone || d.advisor) : "") + ".png";
+  cv.toBlob(blob=>{
+    const dataUrl = cv.toDataURL("image/png");   /* 长按兜底用 dataURL，最稳 */
+    if(!blob){
+      toast("生成图片失败，已展示可长按保存的版本");
+      psShowSave(dataUrl, "图片生成异常。可尝试长按下方图片手动保存，或换用系统浏览器重试。");
+      return;
+    }
+    /* 1) 优先系统分享（iOS 15+ Safari、Android Chrome 等）：分享面板里可直接「存储图像」进相册、
+          或转发给微信好友；仅移动端 UA 启用，桌面/无头环境保持 a[download] 行为 */
+    if(env.share && (env.ios || env.android)){
+      const file = new File([blob], nm, {type:"image/png"});
+      navigator.share({files:[file], title:"费用预估海报", text:"保存海报：选择「存储图像 / 保存到相册」"}).then(()=>{
+        toast("已唤起系统分享：选择「存储图像 / 保存到相册」即可存入手机相册");
+      }).catch(err=>{
+        if(err && err.name === "AbortError") return;   /* 用户主动取消分享，不算失败 */
+        psFallbackSave(blob, dataUrl, nm, env);        /* 分享失败（权限/不支持目标）→ 自动降级 */
+      });
+      return;
+    }
+    psFallbackSave(blob, dataUrl, nm, env);
+  }, "image/png");
+}
+
+/* ---------- 二维码上传 ---------- */
+function loadQR(src){
+  if(!src){ psQR = null; psQRSrc = null; return; }
+  psQRSrc = src;
+  const img = new Image();
+  img.onload = ()=>{ psQR = img; drawPoster(); };
+  img.onerror = ()=>{ psQR = null; psQRSrc = null; toast("二维码图片读取失败"); drawPoster(); };
+  img.src = src;
+}
+
+/* ---------- 绑定 ---------- */
+$("p_advisor").addEventListener("input", ()=>{ saveProfile(); drawPoster(); });
+$("p_phone").addEventListener("input", ()=>{ saveProfile(); drawPoster(); });
+$("p_qr").addEventListener("change", e=>{
+  const f = e.target.files && e.target.files[0];
+  if(!f) return;
+  if(f.size > 4 * 1024 * 1024){ toast("图片过大（>4MB），请先压缩"); e.target.value=""; return; }
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    loadQR(fr.result);
+    saveProfile();          // psQRSrc 已同步赋值，此处保存可靠
+    $("p_qrHint").textContent = "二维码已载入，会贴在每张海报右下角。";
+  };
+  fr.readAsDataURL(f);
+});
+$("p_qrClear").onclick = ()=>{
+  psQR = null; psQRSrc = null; $("p_qr").value = "";
+  saveProfile(); drawPoster();
+  $("p_qrHint").textContent = "已清除二维码，海报将留空位。";
+};
+$("btnPoster").onclick = downloadPoster;
+$("btnPosterPrev").onclick = drawPoster;
+
+/* 初始化：载入顾问档案 + 渲染模板 + 首次绘制 */
+(function initPoster(){
+  const qr = loadProfile();       // 先载入档案（含上次选的图案）
+  renderTpls();
+  renderPats();
+  if(qr) loadQR(qr); else drawPoster();
+})();
+
+buildHospitals(); renderSceneChips(); refreshChips(); syncDcInput(null); calc();
+</script>
+</body>
+</html>
